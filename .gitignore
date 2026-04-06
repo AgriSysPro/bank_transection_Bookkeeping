@@ -1,0 +1,15 @@
+# OS files
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# VS Code files
+.vscode/
+
+# Local logs
+*.log
+
+# Project specific
+node_modules/
+dist/
+.env
