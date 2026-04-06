@@ -1,0 +1,812 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Bank Transaction Bookkeeping — A professional client-side accounting application for managing accounts, transactions, and generating statements.">
+  <title>Bank Transaction Bookkeeping</title>
+
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+
+  <!-- Font Awesome Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+
+  <!-- App CSS -->
+  <link rel="stylesheet" href="css/styles.css">
+
+  <!-- CDN Libraries (non-module) -->
+  <script src="https://unpkg.com/dexie@3.2.7/dist/dexie.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.1/jspdf.plugin.autotable.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+
+  <!-- App JS loaded at bottom of body in dependency order -->
+</head>
+<body>
+
+<!-- Auth / Login Screen -->
+<div class="auth-overlay" id="auth-overlay">
+  <div class="auth-card">
+    <div class="auth-logo">B</div>
+    <h1 class="auth-title" id="auth-title">Welcome</h1>
+    <p class="auth-subtitle">Bank Transaction Bookkeeping</p>
+    <form id="auth-form">
+      <div class="form-group">
+        <label class="form-label" for="auth-username">Username</label>
+        <input type="text" class="form-control" id="auth-username" required autocomplete="username">
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="auth-password">Password</label>
+        <input type="password" class="form-control" id="auth-password" required autocomplete="current-password">
+      </div>
+      <button type="submit" class="btn btn-primary btn-lg" style="width:100%; margin-top:12px;" id="btn-auth-submit">
+        Login
+      </button>
+    </form>
+    <p class="mt-3" style="font-size:11px; color:var(--text-muted);">Your data stays in your browser.</p>
+  </div>
+</div>
+
+<div class="app-container">
+  <!-- ─── Sidebar ─── -->
+  <aside class="sidebar" id="sidebar">
+    <div class="sidebar-header">
+      <div class="sidebar-logo">B</div>
+      <span class="sidebar-title">BookKeeper</span>
+      <button class="sidebar-collapse-btn" id="btn-sidebar-toggle" title="Toggle Sidebar Collapse (Alt+C)">
+        <i class="fas fa-chevron-left" id="sidebar-toggle-icon"></i>
+      </button>
+    </div>
+
+    <nav class="sidebar-nav">
+      <button class="nav-item active" data-page="dashboard" id="nav-dashboard">
+        <i class="fas fa-th-large"></i>
+        <span class="nav-label">Dashboard</span>
+      </button>
+      <button class="nav-item" data-page="accounts" id="nav-accounts">
+        <i class="fas fa-university"></i>
+        <span class="nav-label">Accounts</span>
+        <span class="nav-badge" id="nav-badge-accounts"></span>
+      </button>
+      <button class="nav-item" data-page="transactions" id="nav-transactions">
+        <i class="fas fa-exchange-alt"></i>
+        <span class="nav-label">Transactions</span>
+        <span class="nav-badge" id="nav-badge-transactions"></span>
+      </button>
+      <button class="nav-item" data-page="statements" id="nav-statements">
+        <i class="fas fa-file-invoice-dollar"></i>
+        <span class="nav-label">Statements</span>
+      </button>
+      <button class="nav-item" data-page="categories" id="nav-categories">
+        <i class="fas fa-tags"></i>
+        <span class="nav-label">Categories</span>
+      </button>
+      <button class="nav-item" data-page="settings" id="nav-settings">
+        <i class="fas fa-cog"></i>
+        <span class="nav-label">Settings</span>
+      </button>
+    </nav>
+
+    <div class="sidebar-footer">
+      <div class="nav-item" style="cursor:default; font-size:11px; color:var(--text-muted); gap:8px;">
+        <i class="fas fa-keyboard" style="font-size:12px;"></i>
+        <span class="nav-label">Alt+1‑5 Navigate</span>
+      </div>
+    </div>
+  </aside>
+
+  <!-- ─── Main Content ─── -->
+  <div class="main-wrapper">
+    <!-- Toolbar -->
+    <header class="toolbar">
+      <div class="toolbar-left">
+        <button class="icon-btn" id="btn-mobile-menu" title="Toggle Sidebar">
+          <i class="fas fa-bars"></i>
+        </button>
+        <h1 class="toolbar-title" id="toolbar-title">Dashboard</h1>
+        <span class="toolbar-breadcrumb" id="toolbar-breadcrumb"></span>
+      </div>
+      <div class="toolbar-right">
+        <div class="toolbar-search">
+          <i class="fas fa-search"></i>
+          <input type="text" id="global-search" placeholder="Search… (Ctrl+F)" autocomplete="off">
+        </div>
+        <button class="icon-btn" id="btn-theme-toggle" title="Toggle Theme">
+          <i class="fas fa-sun" id="theme-icon"></i>
+        </button>
+      </div>
+    </header>
+
+    <!-- Content -->
+    <main class="content">
+
+      <!-- ══════ Dashboard Page ══════ -->
+      <section class="page active" id="page-dashboard">
+        <div class="page-header">
+          <h2>Overview & Analytics</h2>
+          <div class="d-flex gap-2">
+            <button class="btn btn-outline" id="btn-quick-add-account" title="Create a new bank account">
+              <i class="fas fa-university"></i> New Account
+            </button>
+            <button class="btn btn-primary" id="btn-quick-add-txn" title="Add a new money transaction">
+              <i class="fas fa-plus"></i> New Transaction
+            </button>
+          </div>
+        </div>
+
+        <!-- Consolidated High-Level Metrics -->
+        <div class="stats-grid mb-3" style="grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)) !important;">
+          <div class="stat-card primary" style="border-bottom: 4px solid var(--primary);">
+            <div class="stat-icon"><i class="fas fa-gem"></i></div>
+            <div class="stat-label">Total Net Worth</div>
+            <div class="stat-value" id="stat-total-net-worth" style="font-size:24px;">Rs. 0.00</div>
+          </div>
+          <div class="stat-card success" style="border-bottom: 4px solid var(--success);">
+            <div class="stat-icon"><i class="fas fa-wallet"></i></div>
+            <div class="stat-label">Liquid Assets</div>
+            <div class="stat-value" id="stat-total-assets">Rs. 0.00</div>
+          </div>
+          <div class="stat-card danger" style="border-bottom: 4px solid var(--danger);">
+            <div class="stat-icon"><i class="fas fa-hand-holding-usd"></i></div>
+            <div class="stat-label">Total Liabilities</div>
+            <div class="stat-value" id="stat-total-liabilities">Rs. 0.00</div>
+          </div>
+          <div class="stat-card info" style="border-bottom: 4px solid var(--info);">
+            <div class="stat-icon"><i class="fas fa-university"></i></div>
+            <div class="stat-label">Active Accounts</div>
+            <div class="stat-value" id="stat-total-accounts">0</div>
+          </div>
+        </div>
+
+        <div class="stats-grid mb-3">
+          <div class="stat-card success">
+            <div class="stat-icon"><i class="fas fa-arrow-down"></i></div>
+            <div class="stat-label">Total Credits</div>
+            <div class="stat-value" id="stat-total-credits">Rs. 0.00</div>
+          </div>
+          <div class="stat-card danger">
+            <div class="stat-icon"><i class="fas fa-arrow-up"></i></div>
+            <div class="stat-label">Total Debits</div>
+            <div class="stat-value" id="stat-total-debits">Rs. 0.00</div>
+          </div>
+          <div class="stat-card info">
+            <div class="stat-icon"><i class="fas fa-balance-scale"></i></div>
+            <div class="stat-label">Current Period Balance</div>
+            <div class="stat-value" id="stat-net-balance">Rs. 0.00</div>
+          </div>
+        </div>
+
+        <!-- Credit vs Debit Bar -->
+        <div class="card mb-3" id="dashboard-ratio-card">
+          <div class="d-flex justify-between align-center mb-2">
+            <span style="font-size:13px; font-weight:600;">Credit vs Debit Ratio</span>
+            <span style="font-size:12px; color:var(--text-muted);" id="ratio-label">0% / 0%</span>
+          </div>
+          <div class="ratio-bar">
+            <div class="ratio-bar-credit" id="ratio-bar-credit" style="width:50%;"></div>
+            <div class="ratio-bar-debit" id="ratio-bar-debit" style="width:50%;"></div>
+          </div>
+          <div class="d-flex justify-between" style="margin-top:8px;">
+            <span style="font-size:11px; color:var(--success);"><i class="fas fa-circle" style="font-size:6px; margin-right:4px;"></i>Credits</span>
+            <span style="font-size:11px; color:var(--danger);"><i class="fas fa-circle" style="font-size:6px; margin-right:4px;"></i>Debits</span>
+          </div>
+        </div>
+
+        <!-- Dashboard Charts -->
+        <div class="form-row mb-3" style="grid-template-columns: 1.5fr 1fr; gap:16px;">
+          <div class="card" style="height:350px; display:flex; flex-direction:column;">
+            <h3 style="font-size:14px; margin-bottom:12px;">Balance Trend (Last 30 Days)</h3>
+            <div style="flex:1; position:relative; min-height:0;">
+              <canvas id="chart-balance-trend"></canvas>
+            </div>
+          </div>
+          <div class="card" style="height:350px; display:flex; flex-direction:column;">
+            <h3 style="font-size:14px; margin-bottom:12px;">Expenses by Category</h3>
+            <div style="flex:1; position:relative; min-height:0;">
+              <canvas id="chart-category-expenses"></canvas>
+            </div>
+          </div>
+        </div>
+
+        <!-- Recent Transactions -->
+        <div class="table-container">
+          <div class="table-toolbar">
+            <h3 style="font-size:14px; font-weight:600;">Recent Transactions</h3>
+            <span style="font-size:12px; color:var(--text-muted);" id="recent-txn-count"></span>
+          </div>
+          <table>
+            <thead>
+              <tr>
+                <th>Date</th>
+                <th>Account</th>
+                <th>Type</th>
+                <th>Amount</th>
+                <th>Description</th>
+              </tr>
+            </thead>
+            <tbody id="recent-txn-tbody"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- ══════ Accounts Page ══════ -->
+      <section class="page" id="page-accounts">
+        <div class="page-header">
+          <h2>Accounts</h2>
+          <button class="btn btn-primary" id="btn-add-account">
+            <i class="fas fa-plus"></i> New Account
+          </button>
+        </div>
+        <div class="accounts-grid" id="accounts-grid"></div>
+      </section>
+
+      <!-- ══════ Transactions Page ══════ -->
+      <section class="page" id="page-transactions">
+        <div class="page-header">
+          <h2>Transactions</h2>
+          <button class="btn btn-primary" id="btn-add-transaction">
+            <i class="fas fa-plus"></i> New Transaction
+          </button>
+        </div>
+
+        <div class="table-container">
+          <div class="table-toolbar">
+            <div class="table-filters">
+              <div class="toolbar-search">
+                <i class="fas fa-search"></i>
+                <input type="text" id="txn-filter-search" placeholder="Search transactions…" autocomplete="off">
+              </div>
+              <select class="form-control" id="txn-filter-account"></select>
+              <select class="form-control" id="txn-filter-type">
+                <option value="">All Types</option>
+                <option value="credit">Credit</option>
+                <option value="debit">Debit</option>
+              </select>
+            </div>
+            <!-- Bulk Actions Toolbar (New Phase 5) -->
+            <div id="bulk-actions-toolbar" class="hidden d-flex gap-2 align-center p-2" style="background:var(--primary-light); border-radius:var(--radius-md); border:1px solid var(--primary);">
+              <span id="bulk-selection-count" style="font-size:12px; font-weight:600; color:var(--primary); margin:0 12px;">0 items selected</span>
+              <button class="btn btn-sm btn-ghost text-danger" id="btn-bulk-delete" title="Delete Selected">
+                <i class="fas fa-trash-alt"></i> Delete
+              </button>
+              <button class="btn btn-sm btn-ghost" id="btn-bulk-verify" title="Toggle Verify">
+                <i class="fas fa-check-double"></i> Verify
+              </button>
+              <button class="btn btn-sm btn-ghost" id="btn-bulk-category" title="Change Category">
+                <i class="fas fa-tags"></i> Category
+              </button>
+              <button class="btn btn-sm btn-ghost" id="btn-bulk-clear" title="Clear Selection">
+                <i class="fas fa-times"></i>
+              </button>
+            </div>
+          </div>
+          <table>
+            <thead>
+              <tr>
+                <th style="width:40px; text-align:center;">
+                  <input type="checkbox" id="txn-master-checkbox">
+                </th>
+                <th data-sort="date">Date <i class="fas fa-sort"></i></th>
+                <th data-sort="accountId">Account <i class="fas fa-sort"></i></th>
+                <th data-sort="type">Type <i class="fas fa-sort"></i></th>
+                <th data-sort="amount">Amount <i class="fas fa-sort"></i></th>
+                <th>Description</th>
+                <th>Receipt</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="transactions-tbody"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- ══════ Categories Page ══════ -->
+      <section class="page" id="page-categories">
+        <div class="page-header">
+          <h2>Categories</h2>
+          <button class="btn btn-primary" id="btn-add-category">
+            <i class="fas fa-plus"></i> New Category
+          </button>
+        </div>
+        <div class="card">
+          <div class="table-container">
+            <table>
+              <thead>
+                <tr>
+                  <th>Name</th>
+                  <th>Type</th>
+                  <th>Color</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody id="categories-tbody"></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- ══════ Statements Page ══════ -->
+      <section class="page" id="page-statements">
+        <div class="page-header">
+          <h2>Account Statement</h2>
+        </div>
+
+        <div class="card mb-3">
+          <!-- Date Presets -->
+          <div class="d-flex gap-2 mb-2" style="flex-wrap:wrap; gap:8px !important;">
+            <span style="font-size:12px; font-weight:600; color:var(--text-muted); margin-right:4px; align-self:center;">Quick:</span>
+            <button class="btn btn-sm btn-outline date-preset" data-days="7">Last 7 Days</button>
+            <button class="btn btn-sm btn-outline date-preset" data-days="30">Last 30 Days</button>
+            <button class="btn btn-sm btn-outline date-preset" data-days="90">Last 3 Months</button>
+            <button class="btn btn-sm btn-outline date-preset" data-days="365">Last Year</button>
+            <button class="btn btn-sm btn-outline date-preset" data-days="thismonth">This Month</button>
+          </div>
+          <div class="form-row" style="align-items:flex-end; grid-template-columns: 1fr 1fr 1fr auto;">
+            <div class="form-group" style="margin-bottom:0;">
+              <label class="form-label" for="stmt-account">Account</label>
+              <select class="form-control" id="stmt-account"></select>
+            </div>
+            <div class="form-group" style="margin-bottom:0;">
+              <label class="form-label" for="stmt-start-date">Start Date</label>
+              <input type="date" class="form-control" id="stmt-start-date">
+            </div>
+            <div class="form-group" style="margin-bottom:0;">
+              <label class="form-label" for="stmt-end-date">End Date</label>
+              <input type="date" class="form-control" id="stmt-end-date">
+            </div>
+            <div class="form-group" style="margin-bottom:0;">
+              <button class="btn btn-primary" id="btn-generate-statement">
+                <i class="fas fa-file-alt"></i> Generate
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div id="statement-actions" class="hidden mb-2 d-flex gap-2" style="justify-content:flex-end;">
+          <button class="btn btn-outline" id="btn-print-statement" title="Print this statement or save as PDF">
+            <i class="fas fa-print"></i> Print
+          </button>
+          <button class="btn btn-primary" id="btn-export-excel" title="Download statement as Excel file (.xlsx)">
+            <i class="fas fa-file-excel"></i> Export Excel
+          </button>
+          <button class="btn btn-success" id="btn-export-pdf" title="Download statement as high-quality PDF">
+            <i class="fas fa-file-pdf"></i> Export PDF
+          </button>
+        </div>
+
+        <div id="statement-output" class="hidden"></div>
+      </section>
+
+      <!-- ══════ Settings Page ══════ -->
+      <section class="page" id="page-settings">
+        <div class="page-header">
+          <h2>Settings & Backup</h2>
+        </div>
+
+        <div class="card mb-3">
+          <h3 style="font-size:15px; font-weight:700; margin-bottom:16px;">
+            <i class="fas fa-database" style="color:var(--primary); margin-right:8px;"></i>
+            Data Management
+          </h3>
+          <p style="font-size:13px; color:var(--text-secondary); margin-bottom:16px;">
+            Export your data as a JSON backup file or restore from a previous backup. Your data is stored
+            locally in IndexedDB and never leaves your browser.
+          </p>
+          <div class="d-flex gap-2" style="flex-wrap:wrap;">
+            <button class="btn btn-primary" id="btn-export-data">
+              <i class="fas fa-download"></i> Export Backup (JSON)
+            </button>
+            <button class="btn btn-outline" id="btn-import-data">
+              <i class="fas fa-upload"></i> Import Backup
+            </button>
+            <button class="btn btn-info" id="btn-import-csv">
+              <i class="fas fa-file-csv"></i> Import Bank CSV
+            </button>
+            <button class="btn btn-success" id="btn-export-all-excel">
+              <i class="fas fa-file-excel"></i> Export All Accounts (Excel)
+            </button>
+          </div>
+          <input type="file" id="import-file-input" accept=".json" style="display:none;">
+        </div>
+
+        <!-- Business Identity (New Phase 5) -->
+        <div class="card mb-3">
+          <h3 style="font-size:15px; font-weight:700; margin-bottom:16px;">
+            <i class="fas fa-id-card" style="color:var(--primary); margin-right:8px;"></i>
+            Business Identity (for PDF Receipts)
+          </h3>
+          <p style="font-size:13px; color:var(--text-secondary); margin-bottom:16px;">
+            Customize your professional receipts (A4). This information will appear in the PDF header.
+          </p>
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label">Business Name</label>
+              <input type="text" class="form-control pref-input" id="pref-biz-name" placeholder="Enter Business Name" data-key="biz_name">
+            </div>
+            <div class="form-group">
+              <label class="form-label">Contact / Phone</label>
+              <input type="text" class="form-control pref-input" id="pref-biz-phone" placeholder="Enter Phone" data-key="biz_phone">
+            </div>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Business Address</label>
+            <textarea class="form-control pref-input" id="pref-biz-address" placeholder="Enter Full Address" data-key="biz_address" style="min-height:50px;"></textarea>
+          </div>
+          <div class="d-flex gap-2 align-center">
+            <div style="flex:1;">
+               <label class="form-label">Logo Upload</label>
+               <input type="file" class="form-control" id="pref-biz-logo-input" accept="image/*">
+            </div>
+            <div id="pref-biz-logo-preview" style="width:80px; height:80px; border:1px solid var(--border-color); border-radius:var(--radius-sm); display:flex; align-items:center; justify-content:center; overflow:hidden; margin-top:20px;">
+              <span class="text-muted" style="font-size:10px;">No Logo</span>
+            </div>
+          </div>
+          <div class="mt-3">
+             <button class="btn btn-primary" id="btn-save-biz-details" title="Save your business name, phone and logo">
+                <i class="fas fa-save" style="margin-right:8px;"></i>
+                Save Business Details
+             </button>
+          </div>
+        </div>
+
+        <div class="card mb-3">
+          <h3 style="font-size:15px; font-weight:700; margin-bottom:16px;">
+            <i class="fas fa-palette" style="color:var(--primary); margin-right:8px;"></i>
+            Appearance
+          </h3>
+          <p style="font-size:13px; color:var(--text-secondary); margin-bottom:16px;">
+            Toggle between dark and light themes. Your preference is saved automatically.
+          </p>
+          <button class="btn btn-outline" id="btn-theme-toggle-settings"
+                  onclick="document.getElementById('btn-theme-toggle').click()">
+            <i class="fas fa-adjust"></i> Toggle Theme
+          </button>
+        </div>
+
+        <div class="card mb-3">
+          <h3 style="font-size:14px; margin-bottom:16px;">App Personalization</h3>
+          <div class="form-group">
+            <label class="form-label">Accent Color Theme</label>
+            <div class="d-flex gap-2 mt-1">
+              <button class="btn btn-outline accent-btn" data-accent="indigo" style="border-left: 4px solid #6366f1;">Indigo</button>
+              <button class="btn btn-outline accent-btn" data-accent="emerald" style="border-left: 4px solid #10b981;">Emerald</button>
+              <button class="btn btn-outline accent-btn" data-accent="cobalt" style="border-left: 4px solid #0ea5e9;">Cobalt</button>
+              <button class="btn btn-outline accent-btn" data-accent="rose" style="border-left: 4px solid #f43f5e;">Rose</button>
+            </div>
+          </div>
+          <div class="form-group mt-3">
+            <label class="form-label">Quick Links</label>
+            <div class="d-flex gap-2">
+              <button class="btn btn-outline" onclick="BK.Navigation.prototype.navigateTo.call(BK.app.navigation, 'categories')">
+                <i class="fas fa-tags"></i> Manage Categories
+              </button>
+              <button class="btn btn-danger btn-outline" id="btn-logout" onclick="BK.app.auth.logout()">
+                <i class="fas fa-sign-out-alt"></i> Logout
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div class="card">
+          <h3 style="font-size:15px; font-weight:700; margin-bottom:16px;">
+            <i class="fas fa-keyboard" style="color:var(--primary); margin-right:8px;"></i>
+            Keyboard Shortcuts
+          </h3>
+          <table style="max-width:400px;">
+            <tbody>
+              <tr><td style="font-weight:600; padding:8px 16px;">Alt + 1</td><td>Dashboard</td></tr>
+              <tr><td style="font-weight:600; padding:8px 16px;">Alt + 2</td><td>Accounts</td></tr>
+              <tr><td style="font-weight:600; padding:8px 16px;">Alt + 3</td><td>Transactions</td></tr>
+              <tr><td style="font-weight:600; padding:8px 16px;">Alt + 4</td><td>Statements</td></tr>
+              <tr><td style="font-weight:600; padding:8px 16px;">Alt + 5</td><td>Settings</td></tr>
+              <tr><td style="font-weight:600; padding:8px 16px;">Ctrl + F</td><td>Focus Search</td></tr>
+              <tr><td style="font-weight:600; padding:8px 16px;">Esc</td><td>Close Modal</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+    </main>
+
+    <!-- Status Bar (Desktop App Feel) -->
+    <div class="status-bar">
+      <div class="status-left">
+        <span><span class="status-dot"></span> Ready</span>
+        <span>|</span>
+        <span>Data: IndexedDB (Local)</span>
+      </div>
+      <div class="status-right">
+        <span id="status-clock"></span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ Modals ═══ -->
+
+<!-- Account Modal -->
+<div class="modal-overlay" id="modal-account">
+  <div class="modal">
+    <div class="modal-header">
+      <h3 id="account-modal-title">New Account</h3>
+      <button class="modal-close" title="Close Modal (Esc)"><i class="fas fa-times"></i></button>
+    </div>
+    <div class="modal-body">
+      <form id="account-form" novalidate>
+        <div class="form-group">
+          <label class="form-label" for="account-name">Account Name *</label>
+          <input type="text" class="form-control" id="account-name" placeholder="e.g. Business Checking" required>
+          <div class="form-error">Account name is required.</div>
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="account-number">Account Number / Identifier</label>
+          <input type="text" class="form-control" id="account-number" placeholder="e.g. XXXX-1234">
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="account-opening-balance">Opening Balance</label>
+          <input type="number" class="form-control" id="account-opening-balance" placeholder="0.00" step="0.01" min="0">
+          <div class="form-error">Please enter a valid amount.</div>
+        </div>
+      </form>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost modal-close">Cancel</button>
+      <button type="submit" class="btn btn-primary" form="account-form">
+        <i class="fas fa-save"></i> Save Account
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- Category Modal -->
+<div class="modal-overlay" id="modal-category">
+  <div class="modal" style="max-width:400px;">
+    <div class="modal-header">
+      <h3 id="category-modal-title">New Category</h3>
+      <button class="modal-close"><i class="fas fa-times"></i></button>
+    </div>
+    <div class="modal-body">
+      <form id="category-form" novalidate>
+        <div class="form-group">
+          <label class="form-label" for="cat-name">Category Name *</label>
+          <input type="text" class="form-control" id="cat-name" placeholder="e.g. Salary, Rent, Food" required>
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="cat-type">Type</label>
+          <select class="form-control" id="cat-type">
+            <option value="expense">Expense</option>
+            <option value="income">Income</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="cat-color">Label Color</label>
+          <input type="color" class="form-control" id="cat-color" value="#3b82f6" style="height:40px; padding:4px;">
+        </div>
+      </form>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost modal-close">Cancel</button>
+      <button type="submit" class="btn btn-primary" form="category-form">
+        <i class="fas fa-save"></i> Save Category
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- Transaction Modal -->
+<div class="modal-overlay" id="modal-transaction">
+  <div class="modal" style="max-width:620px;">
+    <div class="modal-header">
+      <h3 id="txn-modal-title">New Transaction</h3>
+      <button class="modal-close"><i class="fas fa-times"></i></button>
+    </div>
+    <div class="modal-body">
+      <form id="transaction-form" novalidate>
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label" for="txn-date">Date *</label>
+            <input type="date" class="form-control" id="txn-date" required>
+            <div class="form-error">Valid date is required.</div>
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="txn-account">Account *</label>
+            <select class="form-control" id="txn-account" required></select>
+            <div class="form-error">Please select an account.</div>
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label" for="txn-type">Type *</label>
+            <select class="form-control" id="txn-type" required>
+              <option value="debit">Debit</option>
+              <option value="credit">Credit</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="txn-amount">Amount *</label>
+            <input type="number" class="form-control" id="txn-amount" placeholder="0.00" step="0.01" min="0.01" required>
+            <div class="form-error">Enter a valid positive amount.</div>
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group" style="flex:2;">
+            <label class="form-label" for="txn-description">Description / Notes</label>
+            <textarea class="form-control" id="txn-description" rows="1" placeholder="Transaction details…"></textarea>
+          </div>
+          <div class="form-group" style="flex:1;">
+            <label class="form-label" for="txn-category">Category</label>
+            <select class="form-control" id="txn-category"></select>
+          </div>
+        </div>
+
+        <!-- Transfer Toggle -->
+        <div class="form-group mb-3">
+          <label class="d-flex align-center gap-2" style="cursor:pointer; font-size:13px; font-weight:600;">
+            <input type="checkbox" id="txn-is-transfer" style="width:16px; height:16px;">
+            Is this a Transfer?
+          </label>
+        </div>
+
+        <div id="transfer-extra-fields" class="form-row hidden">
+          <div class="form-group">
+            <label class="form-label" for="txn-to-account">To Account *</label>
+            <select class="form-control" id="txn-to-account"></select>
+            <div class="form-error">Please select destination account.</div>
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Receipt (optional)</label>
+          <div class="file-upload" id="receipt-upload-area">
+            <input type="file" id="txn-receipt-file" accept="image/*,.pdf">
+            <i class="fas fa-cloud-upload-alt"></i>
+            <p>Click or drag to upload receipt</p>
+            <span class="file-types">JPG, PNG, GIF, WebP, PDF — Max 5MB</span>
+          </div>
+          <div class="file-preview hidden" id="receipt-preview-area">
+            <i class="fas fa-file"></i>
+            <span class="file-name" id="receipt-file-name">file.jpg</span>
+            <button type="button" class="remove-file" id="btn-remove-receipt" title="Remove">
+              <i class="fas fa-times"></i>
+            </button>
+            <button type="button" class="btn btn-sm btn-info" id="btn-ocr-extract" style="margin-left:12px; font-size:11px; padding:4px 8px;">
+              <i class="fas fa-magic"></i> Extract Data (OCR)
+            </button>
+          </div>
+        </div>
+      </form>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost modal-close">Cancel</button>
+      <button type="submit" class="btn btn-primary" form="transaction-form">
+        <i class="fas fa-save"></i> Save Transaction
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- Receipt Preview Modal -->
+<div class="modal-overlay" id="modal-receipt-preview">
+  <div class="modal" style="max-width:700px;">
+    <div class="modal-header">
+      <h3>Receipt Preview</h3>
+      <button class="modal-close"><i class="fas fa-times"></i></button>
+    </div>
+    <div class="modal-body" id="receipt-preview-content" style="text-align:center;"></div>
+  </div>
+</div>
+
+<!-- Confirm Modal -->
+<div class="modal-overlay" id="modal-confirm">
+  <div class="modal" style="max-width:420px;">
+    <div class="modal-body">
+      <div class="confirm-content danger">
+        <i class="fas fa-exclamation-triangle"></i>
+        <h4>Confirm Action</h4>
+        <p>Are you sure?</p>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" id="btn-confirm-no">Cancel</button>
+      <button class="btn btn-danger" id="btn-confirm-yes">
+        <i class="fas fa-check"></i> Confirm
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- CSV Import Modal -->
+<div class="modal-overlay" id="modal-import-csv">
+  <div class="modal" style="max-width:700px;">
+    <div class="modal-header">
+      <h3>Import Bank Transactions (CSV)</h3>
+      <button class="modal-close"><i class="fas fa-times"></i></button>
+    </div>
+    <div class="modal-body">
+      <div id="csv-upload-step">
+        <p class="mb-2" style="font-size:13px; color:var(--text-secondary);">
+          Upload a CSV file exported from your bank. You will be able to map the columns in the next step.
+        </p>
+        <div class="file-upload" id="csv-upload-area" style="height:120px;">
+          <input type="file" id="csv-file-input" accept=".csv">
+          <i class="fas fa-file-csv"></i>
+          <p>Click to select CSV file</p>
+        </div>
+      </div>
+      <div id="csv-mapping-step" class="hidden">
+        <div class="alert alert-info mb-3">
+          <i class="fas fa-info-circle"></i>
+          Map your CSV columns to the application fields.
+        </div>
+        <div class="form-group">
+          <label class="form-label">Target Account *</label>
+          <select class="form-control" id="csv-target-account"></select>
+        </div>
+        <table class="csv-mapping-table">
+          <thead>
+            <tr><th>App Field</th><th>CSV Column</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>Date</td><td><select class="form-control csv-col-select" data-field="date"></select></td></tr>
+            <tr><td>Description</td><td><select class="form-control csv-col-select" data-field="description"></select></td></tr>
+            <tr><td>Amount</td><td><select class="form-control csv-col-select" data-field="amount"></select></td></tr>
+            <tr><td>Type (Optional)</td><td><select class="form-control csv-col-select" data-field="type"></select></td></tr>
+          </tbody>
+        </table>
+        <div class="mt-3" id="csv-preview-container" style="max-height:200px; overflow:auto; border:1px solid var(--border-color); border-radius:4px;">
+          <!-- Preview table -->
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost modal-close">Cancel</button>
+      <button class="btn btn-primary hidden" id="btn-csv-import-now">
+        <i class="fas fa-check"></i> Import Transactions
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- Command Palette (Ctrl+K) -->
+<div class="modal-overlay" id="modal-command-palette">
+  <div class="modal command-palette" style="max-width:600px; top:15%; transform:translate(-50%, 0); transform-origin: top center;">
+    <div class="modal-body" style="padding:0;">
+      <div class="command-palette-input">
+        <i class="fas fa-terminal"></i>
+        <input type="text" id="command-search" placeholder="Search commands or accounts… (Esc to close)" autocomplete="off">
+      </div>
+      <div class="command-palette-results" id="command-results">
+        <!-- Results will be injected here -->
+      </div>
+      <div class="command-palette-footer">
+        <span><kbd>Enter</kbd> Select</span>
+        <span><kbd>↑↓</kbd> Navigate</span>
+        <span><kbd>Esc</kbd> Close</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Toast Container -->
+<div class="toast-container" id="toast-container"></div>
+<!-- App Scripts (loaded in dependency order) -->
+<script src="js/db.js"></script>
+<script src="js/utils.js"></script>
+<script src="js/ui.js"></script>
+<script src="js/auth.js"></script>
+<script src="js/accounts.js"></script>
+<script src="js/categories.js"></script>
+<script src="js/commands.js"></script>
+<script src="js/automation.js"></script>
+<script src="js/receipts.js"></script>
+<script src="js/charts.js"></script>
+<script src="js/charts.js"></script>
+<script src="js/transactions.js"></script>
+<script src="js/statements.js"></script>
+<script src="js/app.js"></script>
+
+</body>
+</html>
