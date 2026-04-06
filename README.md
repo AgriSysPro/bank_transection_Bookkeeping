@@ -22,7 +22,7 @@ A professional, 100% client-side web application for managing bank transactions 
 
 1.  Clone the repository:
     ```bash
-    git clone https://github.com/[YOUR_USERNAME]/Bank-Transections-BookKeeping.git
+    git clone (https://github.com/AgriSysPro/bank_transection_Bookkeeping)
     ```
 2.  Open `index.html` in your browser or use a local dev server.
 
