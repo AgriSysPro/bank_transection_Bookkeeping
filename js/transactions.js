@@ -544,9 +544,12 @@ var BK = window.BK || {};
 
   TransactionsController.prototype.processFile = function (file) {
     var self = this;
-    var allowed = ['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'application/pdf'];
-    if (allowed.indexOf(file.type) === -1) {
-      Toast.warning('Only images and PDF files are allowed.');
+    var allowed = ['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'application/pdf', 'application/vnd.ms-outlook', 'message/rfc822'];
+    var ext = file.name.split('.').pop().toLowerCase();
+    var isEmail = ext === 'msg' || ext === 'eml';
+
+    if (allowed.indexOf(file.type) === -1 && !isEmail) {
+      Toast.warning('Only images, PDFs, MSG, and EML files are allowed.');
       return;
     }
     if (file.size > 5 * 1024 * 1024) {
@@ -610,8 +613,62 @@ var BK = window.BK || {};
       var embed = U.createElement('embed', { type: 'application/pdf', style: { width: '100%', height: '70vh', borderRadius: '8px' } });
       embed.src = txn.receiptData;
       container.appendChild(embed);
+    } else if (txn.receiptName && txn.receiptName.toLowerCase().endsWith('.eml')) {
+      // EML Rendering
+      try {
+        var base64Content = txn.receiptData.split(',')[1];
+        var rawText = atob(base64Content);
+        var parsed = U.parseEml(rawText);
+        
+        var bodyEl;
+        if (parsed.isHtml) {
+          bodyEl = U.createElement('iframe', { 
+            style: { width: '100%', border: 'none', height: '500px', backgroundColor: '#fff', borderRadius: '4px' },
+            sandbox: 'allow-same-origin' // Minimal permissions
+          });
+          // Wait for mount or set srcdoc
+          bodyEl.srcdoc = `<html><head><style>body { font-family: sans-serif; }</style></head><body>${parsed.body}</body></html>`;
+        } else {
+          bodyEl = U.createElement('pre', { style: { whiteSpace: 'pre-wrap', fontFamily: 'inherit', fontSize: '14px', lineHeight: '1.6', color: 'var(--text-primary)' } }, [U.escapeHtml(parsed.body)]);
+        }
+
+        var emailView = U.createElement('div', { className: 'email-preview', style: { textAlign: 'left', padding: '20px', backgroundColor: 'var(--bg-secondary)', borderRadius: '8px', border: '1px solid var(--border-color)', overflow: 'hidden', maxHeight: 'none' } }, [
+          U.createElement('div', { style: { marginBottom: '16px', borderBottom: '1px solid var(--border-color)', paddingBottom: '12px' } }, [
+            U.createElement('div', { style: { fontWeight: '700', fontSize: '16px', marginBottom: '4px' } }, [U.escapeHtml(parsed.subject)]),
+            U.createElement('div', { style: { fontSize: '13px', color: 'var(--text-secondary)' } }, [
+              U.createElement('strong', {}, ['From: ']), U.escapeHtml(parsed.from)
+            ]),
+            U.createElement('div', { style: { fontSize: '12px', color: 'var(--text-muted)' } }, [
+              U.createElement('strong', {}, ['Date: ']), U.escapeHtml(parsed.date)
+            ])
+          ]),
+          bodyEl
+        ]);
+        container.appendChild(emailView);
+        container.appendChild(U.createElement('div', { style: { marginTop: '16px' } }, [
+          U.createElement('a', { href: txn.receiptData, download: txn.receiptName, className: 'btn btn-outline btn-sm' }, [
+            U.createElement('i', { className: 'fas fa-download', style: { marginRight: '8px' } }), 'Download Original EML'
+          ])
+        ]));
+      } catch (e) {
+        container.appendChild(U.createElement('p', { className: 'text-danger' }, ['Failed to render EML file.']));
+      }
+    } else if (txn.receiptName && txn.receiptName.toLowerCase().endsWith('.msg')) {
+      // MSG Placeholder & Download
+      var msgView = U.createElement('div', { style: { padding: '40px 20px', textAlign: 'center' } }, [
+        U.createElement('i', { className: 'fas fa-envelope-open-text', style: { fontSize: '64px', color: 'var(--primary)', marginBottom: '20px', opacity: '0.6' } }),
+        U.createElement('h4', {}, ['Outlook Message File (.msg)']),
+        U.createElement('p', { className: 'text-muted', style: { marginBottom: '24px' } }, ['Direct preview for .msg files is not supported in the browser.']),
+        U.createElement('a', { href: txn.receiptData, download: txn.receiptName, className: 'btn btn-primary' }, [
+          U.createElement('i', { className: 'fas fa-download', style: { marginRight: '8px' } }), 'Download to View in Outlook'
+        ])
+      ]);
+      container.appendChild(msgView);
     } else {
       container.appendChild(U.createElement('p', { className: 'text-muted' }, ['Cannot preview this file type.']));
+      if (txn.receiptData) {
+        container.appendChild(U.createElement('a', { href: txn.receiptData, download: txn.receiptName || 'attachment', className: 'btn btn-outline btn-sm', style: { marginTop: '12px' } }, ['Download anyway']));
+      }
     }
     Modal.open('modal-receipt-preview');
   };

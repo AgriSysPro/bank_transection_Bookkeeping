@@ -145,5 +145,97 @@ var BK = window.BK || {};
     URL.revokeObjectURL(url);
   };
 
+  Utils.parseEml = function (rawText) {
+    var lines = rawText.split(/\r?\n/);
+    var headers = {};
+    var bodyRaw = [];
+    var isHeader = true;
+
+    // Helper for Quoted-Printable decoding
+    function decodeQP(str) {
+      return str.replace(/=([\r\n]{1,2})/g, '').replace(/=([0-9A-F]{2})/gi, function (match, p1) {
+        return String.fromCharCode(parseInt(p1, 16));
+      });
+    }
+
+    for (var i = 0; i < lines.length; i++) {
+      var line = lines[i];
+      if (isHeader) {
+        if (line.trim() === '') { isHeader = false; } 
+        else {
+          var match = line.match(/^([a-zA-Z0-9-]+):\s*(.*)$/i);
+          if (match) {
+            headers[match[1].toLowerCase()] = match[2];
+          }
+        }
+      } else {
+        bodyRaw.push(line);
+      }
+    }
+
+    var contentType = headers['content-type'] || '';
+    var bodyStr = bodyRaw.join('\n');
+    var finalBody = '';
+    var isHtml = false;
+
+    if (contentType.toLowerCase().includes('multipart/')) {
+      var boundaryMatch = contentType.match(/boundary="?([^"; ]+)"?/i);
+      if (boundaryMatch) {
+        var boundary = boundaryMatch[1];
+        var parts = bodyStr.split('--' + boundary);
+        
+        // Try to find HTML part first, then plain text
+        var htmlPart = '', textPart = '';
+
+        for (var j = 0; j < parts.length; j++) {
+          var part = parts[j];
+          if (!part || part.trim() === '--' || part.trim() === '') continue;
+
+          // Split headers and body of the part (separated by double newline)
+          var partSplit = part.split(/\r?\n\r?\n/);
+          if (partSplit.length < 2) {
+             // Try single newline fallback if double failed (unlikely for valid MIME)
+             partSplit = part.split(/\n\s*\n/);
+          }
+          
+          var pHeadersRaw = partSplit[0];
+          var pBody = partSplit.slice(1).join('\n\n').trim();
+
+          var pHeaders = {};
+          pHeadersRaw.split(/\r?\n/).forEach(function(hLine) {
+            var hMatch = hLine.match(/^([a-zA-Z0-9-]+):\s*(.*)$/i);
+            if (hMatch) pHeaders[hMatch[1].toLowerCase()] = hMatch[2];
+          });
+
+          var pType = pHeaders['content-type'] || '';
+          var pEnc = pHeaders['content-transfer-encoding'] || '';
+          
+          var decodedPart = pEnc.toLowerCase().includes('quoted-printable') ? decodeQP(pBody) : pBody;
+
+          if (pType.includes('text/html')) htmlPart = decodedPart;
+          else if (pType.includes('text/plain')) textPart = decodedPart;
+        }
+        
+        if (htmlPart) { finalBody = htmlPart; isHtml = true; }
+        else { finalBody = textPart; }
+      }
+    }
+
+    if (!finalBody) {
+      // Fallback for non-multipart
+      var enc = headers['content-transfer-encoding'] || '';
+      finalBody = enc.toLowerCase().includes('quoted-printable') ? decodeQP(bodyStr) : bodyStr;
+      if (contentType.includes('text/html')) isHtml = true;
+    }
+
+    return {
+      subject: headers['subject'] || '(No Subject)',
+      from: headers['from'] || '(Unknown Sender)',
+      date: headers['date'] || '',
+      body: finalBody.trim(),
+      isHtml: isHtml
+    };
+  };
+
   BK.Utils = Utils;
 })();
