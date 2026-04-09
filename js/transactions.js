@@ -44,6 +44,14 @@ var BK = window.BK || {};
     var ocrBtn = document.getElementById('btn-ocr-extract');
     if (ocrBtn) ocrBtn.addEventListener('click', function () { self.handleOCR(); });
 
+    // Handle Ctrl+V Paste for screenshots
+    window.addEventListener('paste', function(e) {
+      var modal = document.getElementById('modal-transaction');
+      if (modal && modal.classList.contains('active')) {
+        self.handlePaste(e);
+      }
+    });
+
     var transferCheck = document.getElementById('txn-is-transfer');
     if (transferCheck) {
       transferCheck.addEventListener('change', function () {
@@ -510,18 +518,40 @@ var BK = window.BK || {};
   };
 
   TransactionsController.prototype.handleReceiptUpload = function (e) {
-    var self = this;
     var file = e.target.files[0];
-    if (!file) return;
+    if (file) {
+      this.processFile(file);
+    }
+    e.target.value = '';
+  };
 
+  TransactionsController.prototype.handlePaste = function (e) {
+    var self = this;
+    var items = (e.clipboardData || e.originalEvent.clipboardData).items;
+    for (var i = 0; i < items.length; i++) {
+      if (items[i].type.indexOf('image') !== -1) {
+        var file = items[i].getAsFile();
+        if (file) {
+          // Give it a generic name if it's from clipboard
+          var blob = file.slice(0, file.size, file.type);
+          var newFile = new File([blob], "screenshot-" + Date.now() + ".png", { type: file.type });
+          self.processFile(newFile);
+        }
+        break;
+      }
+    }
+  };
+
+  TransactionsController.prototype.processFile = function (file) {
+    var self = this;
     var allowed = ['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'application/pdf'];
     if (allowed.indexOf(file.type) === -1) {
       Toast.warning('Only images and PDF files are allowed.');
-      e.target.value = ''; return;
+      return;
     }
     if (file.size > 5 * 1024 * 1024) {
       Toast.warning('File size must be under 5MB.');
-      e.target.value = ''; return;
+      return;
     }
 
     U.fileToBase64(file).then(function (data) {
@@ -531,7 +561,6 @@ var BK = window.BK || {};
       self.updateReceiptUI();
       Toast.info('Receipt "' + file.name + '" attached.');
     }).catch(function () { Toast.error('Failed to process file.'); });
-    e.target.value = '';
   };
 
   TransactionsController.prototype.handleOCR = function () {
