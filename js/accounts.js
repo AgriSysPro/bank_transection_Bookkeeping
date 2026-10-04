@@ -99,11 +99,25 @@ var BK = window.BK || {};
 
   AccountsController.prototype.renderAccountCard = function (account, balance, txnCount) {
     var self = this;
+    var type = account.accountType || 'bank';
+
+    // A positive balance means opposite things per account type: money owed to
+    // the user for a receivable, but money the user owes for a payable.
+    var balanceLabel = 'Current Balance';
+    var balanceClass = balance >= 0 ? 'text-success' : 'text-danger';
+    if (type === 'receivable') {
+      balanceLabel = balance >= 0 ? 'Owed to You' : 'You Owe (Overpaid)';
+      balanceClass = balance >= 0 ? 'text-success' : 'text-danger';
+    } else if (type === 'payable') {
+      balanceLabel = balance >= 0 ? 'You Owe' : 'Owed to You (Overpaid)';
+      balanceClass = balance >= 0 ? 'text-danger' : 'text-success';
+    }
+
     return U.createElement('div', { className: 'account-card' }, [
       U.createElement('div', { className: 'account-card-header' }, [
         U.createElement('div', {}, [
-          U.createElement('div', { className: 'account-card-name' }, [U.escapeHtml(account.name)]),
-          U.createElement('div', { className: 'account-card-number' }, [U.escapeHtml(account.accountNumber || 'N/A')])
+          U.createElement('div', { className: 'account-card-name' }, [account.name]),
+          U.createElement('div', { className: 'account-card-number' }, [account.accountNumber || 'N/A'])
         ]),
         U.createElement('div', { className: 'action-btns' }, [
           U.createElement('button', { className: 'btn btn-icon btn-ghost', title: 'Edit', onClick: function () { self.showForm(account); } }, [
@@ -114,8 +128,8 @@ var BK = window.BK || {};
           ])
         ])
       ]),
-      U.createElement('div', { className: 'account-card-label' }, ['Current Balance']),
-      U.createElement('div', { className: 'account-card-balance ' + (balance >= 0 ? 'text-success' : 'text-danger') }, [U.formatCurrency(balance)]),
+      U.createElement('div', { className: 'account-card-label' }, [balanceLabel]),
+      U.createElement('div', { className: 'account-card-balance ' + balanceClass }, [U.formatCurrency(balance)]),
       U.createElement('div', { className: 'account-card-footer' }, [
         U.createElement('span', { className: 'text-muted', style: { fontSize: '12px' } }, ['Opening: ' + U.formatCurrency(account.openingBalance)]),
         U.createElement('span', { className: 'account-card-txn-count' }, [
@@ -211,7 +225,7 @@ var BK = window.BK || {};
       var pays = U.createElement('optgroup', { label: 'Payables (I Owe)' });
 
       accounts.forEach(function (acc) {
-        var opt = U.createElement('option', { value: String(acc.id) }, [U.escapeHtml(acc.name)]);
+        var opt = U.createElement('option', { value: String(acc.id) }, [acc.name]);
         if (selectedId && acc.id === selectedId) opt.selected = true;
         
         if (acc.accountType === 'receivable') recs.appendChild(opt);

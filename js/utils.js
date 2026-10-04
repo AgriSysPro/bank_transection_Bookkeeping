@@ -17,9 +17,11 @@ var BK = window.BK || {};
     return str.replace(/[&<>"']/g, function (c) { return map[c]; });
   };
 
+  // Stored text stays raw. Values are only ever inserted via createTextNode,
+  // which escapes on its own, so escaping here would corrupt the data at rest.
   Utils.sanitize = function (str) {
     if (typeof str !== 'string') return '';
-    return Utils.escapeHtml(str.trim());
+    return str.trim().replace(/\s+/g, ' ');
   };
 
   // ─── Formatting ───
@@ -39,14 +41,50 @@ var BK = window.BK || {};
     }).format(date);
   };
 
+  function pad2(n) { return (n < 10 ? '0' : '') + n; }
+
+  // Local calendar date. toISOString() reports UTC, which lands on the previous
+  // day for every timezone ahead of UTC during the first hours after midnight.
+  Utils.toDateStr = function (date) {
+    return date.getFullYear() + '-' + pad2(date.getMonth() + 1) + '-' + pad2(date.getDate());
+  };
+
   Utils.getTodayStr = function () {
-    return new Date().toISOString().split('T')[0];
+    return Utils.toDateStr(new Date());
   };
 
   Utils.getDaysAgoStr = function (days) {
     var d = new Date();
     d.setDate(d.getDate() - days);
-    return d.toISOString().split('T')[0];
+    return Utils.toDateStr(d);
+  };
+
+  // Accepts the layouts banks export: YYYY-MM-DD, D/M/YYYY, D-M-YY, D.M.YYYY.
+  // Anything not year-first is read day-first, matching the CSV importer's
+  // original assumption. Returns a zero-padded YYYY-MM-DD, or null if unusable.
+  Utils.normaliseDate = function (input) {
+    if (input === null || input === undefined) return null;
+    var parts = String(input).trim().split(/[\/\-.]/);
+    if (parts.length !== 3) return null;
+    for (var i = 0; i < parts.length; i++) {
+      if (!/^\d+$/.test(parts[i])) return null;
+    }
+
+    var y, m, d;
+    if (parts[0].length === 4) {
+      y = parseInt(parts[0], 10); m = parseInt(parts[1], 10); d = parseInt(parts[2], 10);
+    } else {
+      d = parseInt(parts[0], 10); m = parseInt(parts[1], 10); y = parseInt(parts[2], 10);
+      if (parts[2].length === 2) y += (y < 70 ? 2000 : 1900);
+    }
+
+    if (!y || !m || !d || y < 1000 || y > 9999 || m > 12 || d > 31) return null;
+
+    // Reject days the calendar does not have, e.g. 31/02 rolling into March.
+    var probe = new Date(y, m - 1, d);
+    if (probe.getFullYear() !== y || probe.getMonth() !== m - 1 || probe.getDate() !== d) return null;
+
+    return y + '-' + pad2(m) + '-' + pad2(d);
   };
 
   // ─── Validation ───

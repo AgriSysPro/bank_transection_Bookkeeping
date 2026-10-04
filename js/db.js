@@ -28,6 +28,37 @@ var BK = window.BK || {};
     preferences: 'key'
   });
 
+  // Rows written before sanitize() stopped HTML-escaping hold "&amp;" where the
+  // user typed "&". Single-pass, so "&amp;lt;" becomes "&lt;" and does not cascade.
+  var HTML_ENTITIES = { 'amp': '&', 'lt': '<', 'gt': '>', 'quot': '"', '#039': "'" };
+  function unescapeStored(str) {
+    if (typeof str !== 'string') return str;
+    return str.replace(/&(amp|lt|gt|quot|#039);/g, function (match, name) {
+      return HTML_ENTITIES[name];
+    });
+  }
+
+  db.version(4).stores({
+    accounts: '++id, name, accountNumber, createdAt',
+    transactions: '++id, accountId, categoryId, date, type, amount, isTransfer, relatedId, createdAt',
+    categories: '++id, name, type, color',
+    recurring: '++id, nextDate, frequency',
+    preferences: 'key'
+  }).upgrade(function (tx) {
+    return Promise.all([
+      tx.table('transactions').toCollection().modify(function (t) {
+        t.description = unescapeStored(t.description);
+      }),
+      tx.table('accounts').toCollection().modify(function (a) {
+        a.name = unescapeStored(a.name);
+        a.accountNumber = unescapeStored(a.accountNumber);
+      }),
+      tx.table('categories').toCollection().modify(function (c) {
+        c.name = unescapeStored(c.name);
+      })
+    ]);
+  });
+
   BK.db = db;
 
   // ─── Accounts Data Access ───
@@ -187,19 +218,39 @@ var BK = window.BK || {};
         var accounts = results[0];
         var txns = results[1];
         
+        var bankIds = {};
         var totalOpeningBalance = 0;
         accounts.forEach(function (a) {
           totalOpeningBalance += (a.openingBalance || 0);
+          if (!a.accountType || a.accountType === 'bank') bankIds[a.id] = true;
         });
 
-        var totalCredits = 0, totalDebits = 0;
+        // Cash flow only. A transfer between the user's own accounts is neither
+        // income nor expense, and a movement on a receivable or payable account
+        // is not cash at all, so neither belongs in these totals.
+        var totalCredits = 0, totalDebits = 0, transferVolume = 0, transferCount = 0;
         txns.forEach(function (t) {
+          if (t.isTransfer) {
+            transferCount++;
+            transferVolume += Math.abs(t.amount) || 0;
+            return;
+          }
+          if (!bankIds[t.accountId]) return;
           if (t.type === 'credit') totalCredits += t.amount;
           else totalDebits += t.amount;
         });
-        
-        var netBalance = totalOpeningBalance + totalCredits - totalDebits;
-        return { totalCredits: totalCredits, totalDebits: totalDebits, netBalance: netBalance, count: txns.length };
+
+        var netChange = totalCredits - totalDebits;
+        return {
+          totalOpeningBalance: totalOpeningBalance,
+          totalCredits: totalCredits,
+          totalDebits: totalDebits,
+          transferVolume: transferVolume,
+          transferCount: transferCount,
+          netChange: netChange,
+          netBalance: totalOpeningBalance + netChange,
+          count: txns.length
+        };
       });
     }
   };
@@ -221,12 +272,22 @@ var BK = window.BK || {};
 
   // ─── Backup & Restore ───
   BK.backupAllData = function () {
-    return Promise.all([db.accounts.toArray(), db.transactions.toArray()]).then(function (results) {
+    return Promise.all([
+      db.accounts.toArray(),
+      db.transactions.toArray(),
+      db.categories.toArray(),
+      db.preferences.toArray()
+    ]).then(function (results) {
       return {
-        version: 1,
+        version: 2,
         exportDate: new Date().toISOString(),
         appName: 'BankBookkeeping',
-        data: { accounts: results[0], transactions: results[1] }
+        data: {
+          accounts: results[0],
+          transactions: results[1],
+          categories: results[2],
+          preferences: results[3]
+        }
       };
     });
   };
@@ -235,15 +296,17 @@ var BK = window.BK || {};
     if (!backup || !backup.data || backup.appName !== 'BankBookkeeping') {
       return Promise.reject(new Error('Invalid backup file format.'));
     }
-    return db.transaction('rw', db.accounts, db.transactions, function () {
+    var data = backup.data;
+    return db.transaction('rw', db.accounts, db.transactions, db.categories, db.preferences, function () {
       db.accounts.clear();
       db.transactions.clear();
-      if (backup.data.accounts && backup.data.accounts.length > 0) {
-        db.accounts.bulkAdd(backup.data.accounts);
-      }
-      if (backup.data.transactions && backup.data.transactions.length > 0) {
-        db.transactions.bulkAdd(backup.data.transactions);
-      }
+      db.categories.clear();
+      db.preferences.clear();
+      if (data.accounts && data.accounts.length > 0) db.accounts.bulkAdd(data.accounts);
+      if (data.transactions && data.transactions.length > 0) db.transactions.bulkAdd(data.transactions);
+      // Version 1 backups have neither array; restoring one simply leaves them empty.
+      if (data.categories && data.categories.length > 0) db.categories.bulkAdd(data.categories);
+      if (data.preferences && data.preferences.length > 0) db.preferences.bulkAdd(data.preferences);
     });
   };
 })();

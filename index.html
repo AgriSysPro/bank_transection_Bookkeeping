@@ -297,6 +297,12 @@
                 <input type="text" id="txn-filter-search" placeholder="Search transactions…" autocomplete="off">
               </div>
               <select class="form-control" id="txn-filter-account"></select>
+              <select class="form-control" id="txn-filter-account-type">
+                <option value="">All Account Types</option>
+                <option value="bank">Bank &amp; Cash</option>
+                <option value="receivable">Receivables</option>
+                <option value="payable">Payables</option>
+              </select>
               <select class="form-control" id="txn-filter-type">
                 <option value="">All Types</option>
                 <option value="credit">Credit</option>
@@ -638,6 +644,29 @@
       <button class="btn btn-ghost modal-close">Cancel</button>
       <button type="submit" class="btn btn-primary" form="category-form">
         <i class="fas fa-save"></i> Save Category
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- Bulk Category Modal -->
+<div class="modal-overlay" id="modal-bulk-category">
+  <div class="modal" style="max-width:400px;">
+    <div class="modal-header">
+      <h3>Change Category</h3>
+      <button class="modal-close"><i class="fas fa-times"></i></button>
+    </div>
+    <div class="modal-body">
+      <div class="form-group">
+        <label class="form-label" for="bulk-cat-select">Apply this category</label>
+        <select class="form-control" id="bulk-cat-select"></select>
+      </div>
+      <p class="text-muted" style="font-size:13px;" id="bulk-cat-count"></p>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost modal-close">Cancel</button>
+      <button class="btn btn-primary" id="btn-bulk-category-apply">
+        <i class="fas fa-check"></i> Apply
       </button>
     </div>
   </div>

@@ -60,7 +60,7 @@ var BK = window.BK || {};
 
       categories.forEach(function (cat) {
         var row = U.createElement('tr', {}, [
-          U.createElement('td', { style: { fontWeight: '600' } }, [U.escapeHtml(cat.name)]),
+          U.createElement('td', { style: { fontWeight: '600' } }, [cat.name]),
           U.createElement('td', {}, [
             U.createElement('span', { className: 'badge ' + (cat.type === 'income' ? 'badge-credit' : 'badge-debit') }, [
               cat.type.charAt(0).toUpperCase() + cat.type.slice(1)

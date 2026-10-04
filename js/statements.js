@@ -104,11 +104,11 @@ var BK = window.BK || {};
     var headerInfo = U.createElement('div', { className: 'statement-header-info' }, [
       U.createElement('div', { className: 'info-item' }, [
         U.createElement('div', { className: 'info-label' }, ['Account Name']),
-        U.createElement('div', { className: 'info-value' }, [U.escapeHtml(data.account.name)])
+        U.createElement('div', { className: 'info-value' }, [data.account.name])
       ]),
       U.createElement('div', { className: 'info-item' }, [
         U.createElement('div', { className: 'info-label' }, ['Account Number']),
-        U.createElement('div', { className: 'info-value' }, [U.escapeHtml(data.account.accountNumber || 'N/A')])
+        U.createElement('div', { className: 'info-value' }, [data.account.accountNumber || 'N/A'])
       ]),
       U.createElement('div', { className: 'info-item' }, [
         U.createElement('div', { className: 'info-label' }, ['Period Start']),
@@ -151,7 +151,7 @@ var BK = window.BK || {};
         var isCredit = txn.type === 'credit';
         tbody.appendChild(U.createElement('tr', {}, [
           U.createElement('td', {}, [U.formatDate(txn.date)]),
-          U.createElement('td', {}, [U.escapeHtml(txn.description || '\u2014')]),
+          U.createElement('td', {}, [txn.description || '\u2014']),
           U.createElement('td', {}, [
             U.createElement('span', { className: 'badge ' + (isCredit ? 'badge-credit' : 'badge-debit') }, [isCredit ? 'Credit' : 'Debit'])
           ]),

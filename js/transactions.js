@@ -21,7 +21,7 @@ var BK = window.BK || {};
     this.receiptData = null;
     this.receiptType = null;
     this.receiptName = null;
-    this.filters = { search: '', accountId: '', type: '' };
+    this.filters = { search: '', accountId: '', accountType: '', type: '' };
     this.sort = { key: 'date', direction: 'desc' };
     this.categoriesCtrl = new BK.CategoriesController();
     this.selectedIds = new Set();
@@ -85,6 +85,9 @@ var BK = window.BK || {};
     
     var btnBulkCategory = document.getElementById('btn-bulk-category');
     if (btnBulkCategory) btnBulkCategory.onclick = function() { self.bulkChangeCategory(); };
+
+    var btnBulkCategoryApply = document.getElementById('btn-bulk-category-apply');
+    if (btnBulkCategoryApply) btnBulkCategoryApply.onclick = function() { self.applyBulkCategory(); };
     
     var btnBulkClear = document.getElementById('btn-bulk-clear');
     if (btnBulkClear) btnBulkClear.onclick = function() { self.selectedIds.clear(); self.renderTable(); };
@@ -107,6 +110,13 @@ var BK = window.BK || {};
     if (accountFilter) {
       accountFilter.addEventListener('change', function () {
         self.filters.accountId = accountFilter.value;
+        self.renderTable();
+      });
+    }
+    var accountTypeFilter = document.getElementById('txn-filter-account-type');
+    if (accountTypeFilter) {
+      accountTypeFilter.addEventListener('change', function () {
+        self.filters.accountType = accountTypeFilter.value;
         self.renderTable();
       });
     }
@@ -137,12 +147,21 @@ var BK = window.BK || {};
       var transactions = results[0];
       var accounts = results[1];
       var accountMap = {};
-      accounts.forEach(function (a) { accountMap[a.id] = a.name; });
+      var accountTypeMap = {};
+      accounts.forEach(function (a) {
+        accountMap[a.id] = a.name;
+        accountTypeMap[a.id] = a.accountType || 'bank';
+      });
 
       var filtered = transactions;
       if (self.filters.accountId) {
         var accId = parseInt(self.filters.accountId);
         filtered = filtered.filter(function (t) { return t.accountId === accId; });
+      }
+      if (self.filters.accountType) {
+        filtered = filtered.filter(function (t) {
+          return accountTypeMap[t.accountId] === self.filters.accountType;
+        });
       }
       if (self.filters.type) {
         filtered = filtered.filter(function (t) { return t.type === self.filters.type; });
@@ -164,9 +183,9 @@ var BK = window.BK || {};
       U.clearChildren(tbody);
       
       if (masterCheckbox) {
-        masterCheckbox.checked = self.selectedIds.size > 0 && Array.from(self.selectedIds).every(function(id) {
-            return filtered.some(function(f) { return f.id === id; });
-        });
+        var selectedVisible = filtered.filter(function (t) { return self.selectedIds.has(t.id); }).length;
+        masterCheckbox.checked = filtered.length > 0 && selectedVisible === filtered.length;
+        masterCheckbox.indeterminate = selectedVisible > 0 && selectedVisible < filtered.length;
         masterCheckbox.onclick = function() { self.toggleSelectAll(this.checked, filtered); };
       }
       self.updateBulkToolbar();
@@ -198,9 +217,11 @@ var BK = window.BK || {};
         tbody.appendChild(self.renderRow(txn, accountMap[txn.accountId] || 'Unknown', accounts));
       });
 
-      // Transaction totals footer
+      // Transaction totals footer. Transfers move money between the user's own
+      // accounts, so counting them would show income and expense that is not real.
       var totalCredits = 0, totalDebits = 0;
       filtered.forEach(function (t) {
+        if (t.isTransfer) return;
         if (t.type === 'credit') totalCredits += t.amount;
         else totalDebits += t.amount;
       });
@@ -253,8 +274,9 @@ var BK = window.BK || {};
       receiptCell = U.createElement('td', { className: 'text-muted' }, ['\u2014']);
     }
 
-    return U.createElement('tr', { 
+    return U.createElement('tr', {
         className: isSelected ? 'selected' : '',
+        dataset: { txnId: txn.id },
         style: isSelected ? { background: 'var(--primary-light)' } : {},
         onClick: function() { self.toggleSelect(txn.id); }
     }, [
@@ -267,7 +289,7 @@ var BK = window.BK || {};
         })
       ]),
       U.createElement('td', {}, [U.formatDate(txn.date)]),
-      U.createElement('td', {}, [U.escapeHtml(accountName)]),
+      U.createElement('td', {}, [accountName]),
       U.createElement('td', {}, [
         U.createElement('span', { className: 'badge ' + (isCredit ? 'badge-credit' : 'badge-debit') }, [isCredit ? 'Credit' : 'Debit'])
       ]),
@@ -276,7 +298,7 @@ var BK = window.BK || {};
       ]),
       U.createElement('td', {}, [
         U.createElement('div', { style: { display: 'flex', flexDirection: 'column', gap: '4px' } }, [
-          U.createElement('span', {}, [U.escapeHtml(txn.description || '\u2014')]),
+          U.createElement('span', {}, [txn.description || '\u2014']),
           txn.categoryId ? U.createElement('span', { className: 'badge', style: { fontSize: '10px', backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border-color)', width: 'fit-content' } }, [
             U.createElement('i', { className: 'fas fa-tag', style: { fontSize: '9px', marginRight: '4px' } }),
             'Tagged'
@@ -311,7 +333,7 @@ var BK = window.BK || {};
   TransactionsController.prototype.toggleSelect = function(id) {
     if (this.selectedIds.has(id)) this.selectedIds.delete(id);
     else this.selectedIds.add(id);
-    this.renderTable();
+    this.syncSelectionUI();
   };
 
   TransactionsController.prototype.toggleSelectAll = function(checked, currentTxns) {
@@ -321,7 +343,34 @@ var BK = window.BK || {};
     } else {
       currentTxns.forEach(function(t) { self.selectedIds.delete(t.id); });
     }
-    this.renderTable();
+    this.syncSelectionUI();
+  };
+
+  // Reflect the selection onto the existing rows. Rebuilding the table here would
+  // discard scroll position and destroy the row mid-dispatch of its own event.
+  TransactionsController.prototype.syncSelectionUI = function() {
+    var self = this;
+    var tbody = document.getElementById('transactions-tbody');
+    if (tbody) {
+      var rows = tbody.querySelectorAll('tr[data-txn-id]');
+      var selectedVisible = 0;
+      rows.forEach(function(row) {
+        var id = parseInt(row.dataset.txnId, 10);
+        var isSelected = self.selectedIds.has(id);
+        if (isSelected) selectedVisible++;
+        row.classList.toggle('selected', isSelected);
+        row.style.background = isSelected ? 'var(--primary-light)' : '';
+        var cb = row.querySelector('.txn-checkbox');
+        if (cb) cb.checked = isSelected;
+      });
+
+      var masterCheckbox = document.getElementById('txn-master-checkbox');
+      if (masterCheckbox) {
+        masterCheckbox.checked = rows.length > 0 && selectedVisible === rows.length;
+        masterCheckbox.indeterminate = selectedVisible > 0 && selectedVisible < rows.length;
+      }
+    }
+    this.updateBulkToolbar();
   };
 
   TransactionsController.prototype.updateBulkToolbar = function() {
@@ -340,15 +389,33 @@ var BK = window.BK || {};
   TransactionsController.prototype.bulkDelete = function() {
     var self = this;
     var ids = Array.from(this.selectedIds);
-    Modal.confirm('Bulk Delete', 'Are you sure you want to delete ' + ids.length + ' transactions?', 'danger')
-      .then(function(confirmed) {
+    if (ids.length === 0) return;
+
+    // Removing one leg of a transfer but not the other would leave a stranded
+    // entry that silently skews the balance of the account it sits in.
+    return BK.db.transactions.where('id').anyOf(ids).toArray().then(function(selected) {
+      var idSet = {};
+      selected.forEach(function(t) {
+        idSet[t.id] = true;
+        if (t.relatedId) idSet[t.relatedId] = true;
+      });
+      var deleteIds = Object.keys(idSet).map(Number);
+      var extra = deleteIds.length - ids.length;
+
+      return Modal.confirm(
+        'Bulk Delete',
+        'Are you sure you want to delete ' + deleteIds.length + ' transactions?'
+          + (extra > 0 ? ' This includes ' + extra + ' linked transfer entr' + (extra === 1 ? 'y' : 'ies') + '.' : ''),
+        'danger'
+      ).then(function(confirmed) {
         if (!confirmed) return;
-        return BK.db.transactions.bulkDelete(ids).then(function() {
+        return BK.db.transactions.bulkDelete(deleteIds).then(function() {
           self.selectedIds.clear();
-          Toast.success('Deleted ' + ids.length + ' transactions.');
+          Toast.success('Deleted ' + deleteIds.length + ' transactions.');
           return self.render();
         });
       });
+    }).catch(function(err) { Toast.error('Failed to delete: ' + err.message); });
   };
 
   TransactionsController.prototype.bulkToggleVerify = function() {
@@ -363,17 +430,37 @@ var BK = window.BK || {};
   };
 
   TransactionsController.prototype.bulkChangeCategory = function() {
-    var self = this;
     var ids = Array.from(this.selectedIds);
-    // Simple prompt for now, or could use a custom modal
-    var catName = prompt("Enter category ID to apply to selected items (or leave empty to clear):");
-    var catId = parseInt(catName) || null;
-    
-    BK.db.transactions.where('id').anyOf(ids).modify({ categoryId: catId }).then(function() {
+    if (ids.length === 0) return;
+
+    var select = document.getElementById('bulk-cat-select');
+    if (!select) return;
+
+    return this.categoriesCtrl.renderOptions(select, null).then(function() {
+      var clearOpt = select.querySelector('option');
+      if (clearOpt) clearOpt.textContent = '— Clear category —';
+      var countEl = document.getElementById('bulk-cat-count');
+      if (countEl) countEl.textContent = ids.length + ' transaction' + (ids.length === 1 ? '' : 's') + ' selected.';
+      Modal.open('modal-bulk-category');
+    });
+  };
+
+  TransactionsController.prototype.applyBulkCategory = function() {
+    var self = this;
+    var select = document.getElementById('bulk-cat-select');
+    var ids = Array.from(this.selectedIds);
+    if (!select || ids.length === 0) return;
+
+    var raw = select.value;
+    var catId = raw === '' ? null : parseInt(raw, 10);
+    if (raw !== '' && isNaN(catId)) { Toast.error('Invalid category selected.'); return; }
+
+    return BK.db.transactions.where('id').anyOf(ids).modify({ categoryId: catId }).then(function() {
       Toast.success('Category updated for ' + ids.length + ' items.');
+      Modal.close('modal-bulk-category');
       self.selectedIds.clear();
       return self.render();
-    });
+    }).catch(function(err) { Toast.error('Failed to update category: ' + err.message); });
   };
 
   TransactionsController.prototype.toggleVerify = function (txn) {
@@ -482,8 +569,9 @@ var BK = window.BK || {};
         if (existingTxn.isTransfer && existingTxn.relatedId) {
           return TDB.getById(existingTxn.relatedId).then(function (relatedTxn) {
             if (relatedTxn) {
-              var update1 = Object.assign({}, data, { type: existingTxn.type, accountId: existingTxn.accountId });
-              var update2 = Object.assign({}, data, { type: relatedTxn.type, accountId: relatedTxn.accountId, description: relatedTxn.description });
+              // Transfer legs are not spending, so they carry no category.
+              var update1 = Object.assign({}, data, { type: existingTxn.type, accountId: existingTxn.accountId, categoryId: null });
+              var update2 = Object.assign({}, data, { type: relatedTxn.type, accountId: relatedTxn.accountId, description: relatedTxn.description, categoryId: null });
               
               if (existingTxn.type === 'debit') {
                   update1.description = 'Transfer to target account: ' + data.description;
@@ -505,12 +593,14 @@ var BK = window.BK || {};
         return TDB.update(self.editingId, data);
       });
     } else if (isTransfer) {
-      // Create two transactions
-      var debitTxn = Object.assign({}, data, { type: 'debit', description: 'Transfer to target account: ' + description });
+      // Create two transactions. Neither leg is income or expense, so neither
+      // carries a category — otherwise transfers show up in the spending chart.
+      var debitTxn = Object.assign({}, data, { type: 'debit', categoryId: null, description: 'Transfer to target account: ' + description });
       promise = TDB.add(debitTxn).then(function (id1) {
-        var creditTxn = Object.assign({}, data, { 
-          type: 'credit', 
-          accountId: toAccountId, 
+        var creditTxn = Object.assign({}, data, {
+          type: 'credit',
+          accountId: toAccountId,
+          categoryId: null,
           relatedId: id1,
           description: 'Transfer from source account: ' + description
         });
@@ -657,24 +747,26 @@ var BK = window.BK || {};
         
         var bodyEl;
         if (parsed.isHtml) {
-          bodyEl = U.createElement('iframe', { 
+          // Fully sandboxed: the email body is untrusted markup, so it must not
+          // share this page's origin. No scripts run, so nothing is lost.
+          bodyEl = U.createElement('iframe', {
             style: { width: '100%', border: 'none', height: '500px', backgroundColor: '#fff', borderRadius: '4px' },
-            sandbox: 'allow-same-origin' // Minimal permissions
+            sandbox: ''
           });
           // Wait for mount or set srcdoc
           bodyEl.srcdoc = `<html><head><style>body { font-family: sans-serif; }</style></head><body>${parsed.body}</body></html>`;
         } else {
-          bodyEl = U.createElement('pre', { style: { whiteSpace: 'pre-wrap', fontFamily: 'inherit', fontSize: '14px', lineHeight: '1.6', color: 'var(--text-primary)' } }, [U.escapeHtml(parsed.body)]);
+          bodyEl = U.createElement('pre', { style: { whiteSpace: 'pre-wrap', fontFamily: 'inherit', fontSize: '14px', lineHeight: '1.6', color: 'var(--text-primary)' } }, [parsed.body]);
         }
 
         var emailView = U.createElement('div', { className: 'email-preview', style: { textAlign: 'left', padding: '20px', backgroundColor: 'var(--bg-secondary)', borderRadius: '8px', border: '1px solid var(--border-color)', overflow: 'hidden', maxHeight: 'none' } }, [
           U.createElement('div', { style: { marginBottom: '16px', borderBottom: '1px solid var(--border-color)', paddingBottom: '12px' } }, [
-            U.createElement('div', { style: { fontWeight: '700', fontSize: '16px', marginBottom: '4px' } }, [U.escapeHtml(parsed.subject)]),
+            U.createElement('div', { style: { fontWeight: '700', fontSize: '16px', marginBottom: '4px' } }, [parsed.subject]),
             U.createElement('div', { style: { fontSize: '13px', color: 'var(--text-secondary)' } }, [
-              U.createElement('strong', {}, ['From: ']), U.escapeHtml(parsed.from)
+              U.createElement('strong', {}, ['From: ']), parsed.from
             ]),
             U.createElement('div', { style: { fontSize: '12px', color: 'var(--text-muted)' } }, [
-              U.createElement('strong', {}, ['Date: ']), U.escapeHtml(parsed.date)
+              U.createElement('strong', {}, ['Date: ']), parsed.date
             ])
           ]),
           bodyEl
@@ -710,14 +802,17 @@ var BK = window.BK || {};
 
   TransactionsController.prototype.applyFilter = function (filterObj) {
     if (filterObj.accountId !== undefined) this.filters.accountId = filterObj.accountId;
+    if (filterObj.accountType !== undefined) this.filters.accountType = filterObj.accountType;
     if (filterObj.type !== undefined) this.filters.type = filterObj.type;
     if (filterObj.search !== undefined) this.filters.search = filterObj.search;
-    
+
     var accountFilter = document.getElementById('txn-filter-account');
+    var accountTypeFilter = document.getElementById('txn-filter-account-type');
     var typeFilter = document.getElementById('txn-filter-type');
     var searchInput = document.getElementById('txn-filter-search');
-    
+
     if (accountFilter) accountFilter.value = this.filters.accountId;
+    if (accountTypeFilter) accountTypeFilter.value = this.filters.accountType;
     if (typeFilter) typeFilter.value = this.filters.type;
     if (searchInput) searchInput.value = this.filters.search;
 

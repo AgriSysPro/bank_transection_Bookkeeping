@@ -93,29 +93,21 @@ var BK = window.BK || {};
       });
 
       return Promise.all(balancePromises).then(function(balances) {
-        var totalAssets = 0;
-        var totalLiabilities = 0;
+        var totalLiquid = 0;
         var totalReceivables = 0;
         var totalPayables = 0;
 
         balances.forEach(function(bal, idx) {
-          var acc = accounts[idx];
-          
-          if (acc.accountType === 'receivable') {
-            totalReceivables += bal; // Assuming positive balance means they owe us
-          } else if (acc.accountType === 'payable') {
-            totalPayables += Math.abs(bal); // Assuming negative balance means we owe them
-          }
-
-          if (bal >= 0) totalAssets += bal;
-          else totalLiabilities += Math.abs(bal);
+          var type = accounts[idx].accountType || 'bank';
+          if (type === 'receivable') totalReceivables += bal;
+          else if (type === 'payable') totalPayables += bal;
+          else totalLiquid += bal;
         });
 
-        var netWorth = totalAssets - totalLiabilities;
+        var netWorth = totalLiquid + totalReceivables - totalPayables;
 
         var elNetWorth = document.getElementById('stat-total-net-worth');
         var elAssets = document.getElementById('stat-total-assets');
-        var elLiab = document.getElementById('stat-total-liabilities');
         var elRec = document.getElementById('stat-total-receivables');
         var elPay = document.getElementById('stat-total-payables');
 
@@ -123,8 +115,7 @@ var BK = window.BK || {};
           elNetWorth.textContent = U.formatCurrency(netWorth);
           elNetWorth.className = 'stat-value ' + (netWorth >= 0 ? 'text-success' : 'text-danger');
         }
-        if (elAssets) elAssets.textContent = U.formatCurrency(totalAssets);
-        if (elLiab) elLiab.textContent = U.formatCurrency(totalLiabilities);
+        if (elAssets) elAssets.textContent = U.formatCurrency(totalLiquid);
         if (elRec) elRec.textContent = U.formatCurrency(totalReceivables);
         if (elPay) elPay.textContent = U.formatCurrency(totalPayables);
 
@@ -137,8 +128,8 @@ var BK = window.BK || {};
         if (el2) el2.textContent = U.formatCurrency(stats.totalCredits);
         if (el3) el3.textContent = U.formatCurrency(stats.totalDebits);
         if (el4) {
-          el4.textContent = U.formatCurrency(stats.netBalance);
-          el4.className = 'stat-value ' + (stats.netBalance >= 0 ? 'text-success' : 'text-danger');
+          el4.textContent = U.formatCurrency(stats.netChange);
+          el4.className = 'stat-value ' + (stats.netChange >= 0 ? 'text-success' : 'text-danger');
         }
 
         // Update credit/debit ratio bar
@@ -190,14 +181,14 @@ var BK = window.BK || {};
         var isCredit = txn.type === 'credit';
         tbody.appendChild(U.createElement('tr', {}, [
           U.createElement('td', {}, [U.formatDate(txn.date)]),
-          U.createElement('td', {}, [U.escapeHtml(accountMap[txn.accountId] || 'Unknown')]),
+          U.createElement('td', {}, [accountMap[txn.accountId] || 'Unknown']),
           U.createElement('td', {}, [
             U.createElement('span', { className: 'badge ' + (isCredit ? 'badge-credit' : 'badge-debit') }, [isCredit ? 'Credit' : 'Debit'])
           ]),
           U.createElement('td', { className: isCredit ? 'text-success' : 'text-danger', style: { fontWeight: '600' } }, [
             (isCredit ? '+' : '\u2212') + U.formatCurrency(txn.amount)
           ]),
-          U.createElement('td', {}, [U.escapeHtml(txn.description || '\u2014')])
+          U.createElement('td', {}, [txn.description || '\u2014'])
         ]));
       });
     });
@@ -206,39 +197,12 @@ var BK = window.BK || {};
   App.prototype.refreshAll = function () {
     var self = this;
     self.renderDashboard();
-    self.renderConsolidatedStats();
     var page = self.navigation.getCurrentPage();
     if (page === 'accounts') self.accountsCtrl.render();
     if (page === 'categories') self.categoriesCtrl.render();
     if (page === 'transactions') self.transactionsCtrl.render();
     if (page === 'statements') self.statementsCtrl.render();
     if (BK.Charts) BK.Charts.renderAll();
-  };
-
-  App.prototype.renderConsolidatedStats = function () {
-    Promise.all([BK.AccountsDB.getAll(), BK.TransactionsDB.getAll()]).then(function (results) {
-      var accounts = results[0];
-      var transactions = results[1];
-      
-      var totalOpening = 0;
-      accounts.forEach(function (a) { totalOpening += (a.openingBalance || 0); });
-
-      var totalCredits = 0, totalDebits = 0;
-      transactions.forEach(function (t) {
-        if (t.type === 'credit') totalCredits += t.amount;
-        else totalDebits += t.amount;
-      });
-
-      var netWorth = totalOpening + totalCredits - totalDebits;
-      
-      var nwEl = document.getElementById('stat-total-net-worth');
-      var asEl = document.getElementById('stat-total-assets');
-      var liEl = document.getElementById('stat-total-liabilities');
-
-      if (nwEl) nwEl.textContent = BK.Utils.formatCurrency(netWorth);
-      if (asEl) asEl.textContent = BK.Utils.formatCurrency(totalOpening + totalCredits);
-      if (liEl) liEl.textContent = BK.Utils.formatCurrency(totalDebits);
-    });
   };
 
   App.prototype.startClock = function () {
@@ -341,22 +305,27 @@ var BK = window.BK || {};
   // ─── Drill-down (Dashboard to Transactions) ───
   App.prototype.initDrillDown = function () {
     var self = this;
-    var creditCard = document.querySelector('.stat-card.success');
-    var debitCard = document.querySelector('.stat-card.danger');
-    var accountCard = document.querySelector('.stat-card.primary');
+    // Several cards share each colour class, so resolve them from their value id.
+    var creditsEl = document.getElementById('stat-total-credits');
+    var debitsEl = document.getElementById('stat-total-debits');
+    var accountsEl = document.getElementById('stat-total-accounts');
+    var creditCard = creditsEl && creditsEl.closest('.stat-card');
+    var debitCard = debitsEl && debitsEl.closest('.stat-card');
+    var accountCard = accountsEl && accountsEl.closest('.stat-card');
 
+    // These cards total bank-account cash flow, so the filter must match.
     if (creditCard) {
       creditCard.style.cursor = 'pointer';
       creditCard.addEventListener('click', function () {
         self.navigation.navigateTo('transactions');
-        self.transactionsCtrl.applyFilter({ type: 'credit' });
+        self.transactionsCtrl.applyFilter({ type: 'credit', accountType: 'bank' });
       });
     }
     if (debitCard) {
       debitCard.style.cursor = 'pointer';
       debitCard.addEventListener('click', function () {
         self.navigation.navigateTo('transactions');
-        self.transactionsCtrl.applyFilter({ type: 'debit' });
+        self.transactionsCtrl.applyFilter({ type: 'debit', accountType: 'bank' });
       });
     }
     if (accountCard) {
@@ -383,13 +352,13 @@ var BK = window.BK || {};
 
         if (days === 'thismonth') {
           var first = new Date(today.getFullYear(), today.getMonth(), 1);
-          startDate.value = first.toISOString().split('T')[0];
-          endDate.value = today.toISOString().split('T')[0];
+          startDate.value = U.toDateStr(first);
+          endDate.value = U.toDateStr(today);
         } else {
           var daysAgo = new Date();
-          daysAgo.setDate(daysAgo.getDate() - parseInt(days));
-          startDate.value = daysAgo.toISOString().split('T')[0];
-          endDate.value = today.toISOString().split('T')[0];
+          daysAgo.setDate(daysAgo.getDate() - parseInt(days, 10));
+          startDate.value = U.toDateStr(daysAgo);
+          endDate.value = U.toDateStr(today);
         }
       });
     });

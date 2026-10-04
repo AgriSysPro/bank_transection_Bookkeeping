@@ -134,43 +134,41 @@ var BK = window.BK || {};
       return;
     }
 
+    var skipped = 0;
+
     var importPromises = this.csvData.map(function (row) {
-      var dateStr = row[mappings.date];
-      var amountStr = row[mappings.amount].replace(/[^0-9.-]/g, '');
-      var amount = parseFloat(amountStr);
+      var rawAmount = (row[mappings.amount] || '').replace(/[^0-9.-]/g, '');
+      var signedAmount = parseFloat(rawAmount);
       var description = mappings.description !== undefined ? row[mappings.description] : 'CSV Import';
-      var type = 'debit';
-      
+
+      // Dates must land as zero-padded YYYY-MM-DD: the statement range filters
+      // compare them as strings, and unpadded values silently fall outside.
+      var date = U.normaliseDate(row[mappings.date]);
+      if (isNaN(signedAmount) || !date) { skipped++; return Promise.resolve(); }
+
+      var type;
       if (mappings.type !== undefined) {
-        var t = row[mappings.type].toLowerCase();
-        if (t.includes('cr') || t.includes('credit') || t.includes('in')) type = 'credit';
+        var t = (row[mappings.type] || '').toLowerCase();
+        type = (t.indexOf('cr') !== -1 || t.indexOf('credit') !== -1 || t.indexOf('in') !== -1) ? 'credit' : 'debit';
       } else {
-        if (amount > 0) type = 'credit';
-        else { type = 'debit'; amount = Math.abs(amount); }
+        type = signedAmount > 0 ? 'credit' : 'debit';
       }
 
-      if (!isNaN(amount) && dateStr) {
-        // Try to normalize date (Basic)
-        var dParts = dateStr.split(/[-/]/);
-        if (dParts.length === 3) {
-          // Detect YYYY-MM-DD or DD-MM-YYYY
-          if (dParts[0].length === 4) dateStr = dParts.join('-');
-          else dateStr = dParts[2] + '-' + dParts[1] + '-' + dParts[0];
-        }
-
-        return TDB.add({
-          date: dateStr,
-          accountId: accountId,
-          type: type,
-          amount: amount,
-          description: description
-        });
-      }
-      return Promise.resolve();
+      return TDB.add({
+        date: date,
+        accountId: accountId,
+        // Stored unsigned: direction lives in the type, so keeping a negative
+        // sign here would make a credit subtract from the balance.
+        type: type,
+        amount: Math.abs(signedAmount),
+        description: U.sanitize(description)
+      });
     });
 
     Promise.all(importPromises).then(function () {
-      Toast.success('Imported ' + self.csvData.length + ' transactions.');
+      var imported = self.csvData.length - skipped;
+      Toast.success('Imported ' + imported + ' transaction' + (imported === 1 ? '' : 's') + '.'
+        + (skipped > 0 ? ' Skipped ' + skipped + ' row' + (skipped === 1 ? '' : 's') + ' with an unreadable date or amount.' : ''));
       Modal.close('modal-import-csv');
       self.app.refreshAll();
     }).catch(function (err) {

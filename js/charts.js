@@ -22,48 +22,75 @@ var BK = window.BK || {};
 
     renderAll: function () {
       var self = this;
-      Promise.all([TDB.getAll(), CDB.getAll()]).then(function (results) {
+      Promise.all([TDB.getAll(), CDB.getAll(), BK.AccountsDB.getAll()]).then(function (results) {
         var transactions = results[0];
         var categories = results[1];
-        self.renderBalanceTrend(transactions);
+        var accounts = results[2];
+        self.renderBalanceTrend(transactions, accounts);
         self.renderCategoryExpenses(transactions, categories);
       });
     },
 
-    renderBalanceTrend: function (transactions) {
+    renderBalanceTrend: function (transactions, accounts) {
       var ctx = document.getElementById('chart-balance-trend');
       if (!ctx) return;
 
       var isDark = document.documentElement.getAttribute('data-theme') === 'dark';
 
-      // Filter last 30 days
-      var today = new Date();
-      var thirtyDaysAgo = new Date();
-      thirtyDaysAgo.setDate(today.getDate() - 30);
+      // Liquid assets only. A credit raises and a debit lowers a bank balance,
+      // but the same is not true of a payable, so mixing account types here
+      // would plot a number that is not a balance of anything.
+      var bankIds = {};
+      var openingTotal = 0;
+      accounts.forEach(function (a) {
+        if (!a.accountType || a.accountType === 'bank') {
+          bankIds[a.id] = true;
+          openingTotal += (a.openingBalance || 0);
+        }
+      });
 
-      var sorted = transactions
-        .filter(function (t) { return new Date(t.date) >= thirtyDaysAgo; })
-        .sort(function (a, b) { return new Date(a.date) - new Date(b.date); });
+      // Balance is opening totals, then every movement in date order. The old
+      // version started from zero inside the window, so it plotted 30 days of
+      // cash flow and called it a balance.
+      var chronological = transactions.filter(function (t) {
+        return bankIds[t.accountId];
+      }).sort(function (a, b) {
+        if (a.date < b.date) return -1;
+        if (a.date > b.date) return 1;
+        return (a.id || 0) - (b.id || 0);
+      });
+
+      var dayMovement = {};
+      var dayOrder = [];
+      chronological.forEach(function (t) {
+        if (!(t.date in dayMovement)) { dayMovement[t.date] = 0; dayOrder.push(t.date); }
+        if (t.type === 'credit') dayMovement[t.date] += t.amount;
+        else dayMovement[t.date] -= t.amount;
+      });
+
+      var windowStart = U.getDaysAgoStr(30);
+      var running = openingTotal;
+      var preWindowBalance = openingTotal;
+      var visible = [];
+      dayOrder.forEach(function (d) {
+        running += dayMovement[d];
+        if (d < windowStart) preWindowBalance = running;
+        else visible.push({ date: d, balance: running });
+      });
 
       var labels = [];
       var dataPoints = [];
-
-      // Group by day
-      var dayBalances = {};
-      sorted.forEach(function (t) {
-        var d = t.date;
-        if (!dayBalances[d]) dayBalances[d] = 0;
-        if (t.type === 'credit') dayBalances[d] += t.amount;
-        else dayBalances[d] -= t.amount;
-      });
-
-      var dates = Object.keys(dayBalances).sort();
-      var runningTotal = 0;
-      dates.forEach(function (d) {
-        labels.push(U.formatDate(d));
-        runningTotal += dayBalances[d];
-        dataPoints.push(runningTotal);
-      });
+      if (visible.length > 0) {
+        // Anchor the line at the balance the window opened with.
+        if (visible[0].date > windowStart) {
+          labels.push(U.formatDate(windowStart));
+          dataPoints.push(preWindowBalance);
+        }
+        visible.forEach(function (p) {
+          labels.push(U.formatDate(p.date));
+          dataPoints.push(p.balance);
+        });
+      }
 
       if (balanceChart) balanceChart.destroy();
 
@@ -77,7 +104,7 @@ var BK = window.BK || {};
         data: {
           labels: labels.length > 0 ? labels : ['No Data'],
           datasets: [{
-            label: 'Net Balance',
+            label: 'Liquid Assets',
             data: dataPoints.length > 0 ? dataPoints : [0],
             borderColor: lineColor,
             borderWidth: 2,
@@ -125,9 +152,16 @@ var BK = window.BK || {};
 
       var isDark = document.documentElement.getAttribute('data-theme') === 'dark';
 
-      var expenseTxns = transactions.filter(function (t) { return t.type === 'debit' && t.categoryId; });
       var categoryMap = {};
       categories.forEach(function (c) { categoryMap[c.id] = c; });
+
+      // Spending only: a debit tagged with an income category is not an expense,
+      // and a transfer is a movement between the user's own accounts.
+      var expenseTxns = transactions.filter(function (t) {
+        if (t.isTransfer || t.type !== 'debit' || !t.categoryId) return false;
+        var cat = categoryMap[t.categoryId];
+        return !!cat && cat.type === 'expense';
+      });
 
       var totals = {};
       expenseTxns.forEach(function (t) {
