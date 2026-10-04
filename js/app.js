@@ -66,7 +66,11 @@ var BK = window.BK || {};
   App.prototype.onPageChange = function (page) {
     switch (page) {
       case 'dashboard': this.renderDashboard(); break;
-      case 'accounts': this.accountsCtrl.render(); break;
+      case 'accounts': 
+      case 'payables':
+      case 'receivables':
+        this.accountsCtrl.render(); 
+        break;
       case 'categories': this.categoriesCtrl.render(); break;
       case 'transactions': this.transactionsCtrl.render(); break;
       case 'statements': this.statementsCtrl.render(); break;
@@ -75,38 +79,84 @@ var BK = window.BK || {};
 
   App.prototype.renderDashboard = function () {
     var self = this;
-    return Promise.all([BK.AccountsDB.count(), BK.TransactionsDB.getStats()]).then(function (results) {
+    return Promise.all([
+      BK.AccountsDB.count(), 
+      BK.TransactionsDB.getStats(),
+      BK.AccountsDB.getAll()
+    ]).then(function (results) {
       var accountCount = results[0];
       var stats = results[1];
+      var accounts = results[2];
 
-      var el1 = document.getElementById('stat-total-accounts');
-      var el2 = document.getElementById('stat-total-credits');
-      var el3 = document.getElementById('stat-total-debits');
-      var el4 = document.getElementById('stat-net-balance');
+      var balancePromises = accounts.map(function(acc) {
+        return BK.calculateAccountBalance(acc.id);
+      });
 
-      if (el1) el1.textContent = accountCount;
-      if (el2) el2.textContent = U.formatCurrency(stats.totalCredits);
-      if (el3) el3.textContent = U.formatCurrency(stats.totalDebits);
-      if (el4) {
-        el4.textContent = U.formatCurrency(stats.netBalance);
-        el4.className = 'stat-value ' + (stats.netBalance >= 0 ? 'text-success' : 'text-danger');
-      }
+      return Promise.all(balancePromises).then(function(balances) {
+        var totalAssets = 0;
+        var totalLiabilities = 0;
+        var totalReceivables = 0;
+        var totalPayables = 0;
 
-      // Update credit/debit ratio bar
-      var total = stats.totalCredits + stats.totalDebits;
-      var creditPct = total > 0 ? Math.round((stats.totalCredits / total) * 100) : 50;
-      var debitPct = total > 0 ? 100 - creditPct : 50;
-      var ratioCredit = document.getElementById('ratio-bar-credit');
-      var ratioDebit = document.getElementById('ratio-bar-debit');
-      var ratioLabel = document.getElementById('ratio-label');
-      if (ratioCredit) ratioCredit.style.width = creditPct + '%';
-      if (ratioDebit) ratioDebit.style.width = debitPct + '%';
-      if (ratioLabel) ratioLabel.textContent = creditPct + '% Credits / ' + debitPct + '% Debits';
+        balances.forEach(function(bal, idx) {
+          var acc = accounts[idx];
+          
+          if (acc.accountType === 'receivable') {
+            totalReceivables += bal; // Assuming positive balance means they owe us
+          } else if (acc.accountType === 'payable') {
+            totalPayables += Math.abs(bal); // Assuming negative balance means we owe them
+          }
 
-      // Update nav badges
-      self.updateNavBadges();
+          if (bal >= 0) totalAssets += bal;
+          else totalLiabilities += Math.abs(bal);
+        });
 
-      return self.renderRecentTransactions();
+        var netWorth = totalAssets - totalLiabilities;
+
+        var elNetWorth = document.getElementById('stat-total-net-worth');
+        var elAssets = document.getElementById('stat-total-assets');
+        var elLiab = document.getElementById('stat-total-liabilities');
+        var elRec = document.getElementById('stat-total-receivables');
+        var elPay = document.getElementById('stat-total-payables');
+
+        if (elNetWorth) {
+          elNetWorth.textContent = U.formatCurrency(netWorth);
+          elNetWorth.className = 'stat-value ' + (netWorth >= 0 ? 'text-success' : 'text-danger');
+        }
+        if (elAssets) elAssets.textContent = U.formatCurrency(totalAssets);
+        if (elLiab) elLiab.textContent = U.formatCurrency(totalLiabilities);
+        if (elRec) elRec.textContent = U.formatCurrency(totalReceivables);
+        if (elPay) elPay.textContent = U.formatCurrency(totalPayables);
+
+        var el1 = document.getElementById('stat-total-accounts');
+        var el2 = document.getElementById('stat-total-credits');
+        var el3 = document.getElementById('stat-total-debits');
+        var el4 = document.getElementById('stat-net-balance');
+
+        if (el1) el1.textContent = accountCount;
+        if (el2) el2.textContent = U.formatCurrency(stats.totalCredits);
+        if (el3) el3.textContent = U.formatCurrency(stats.totalDebits);
+        if (el4) {
+          el4.textContent = U.formatCurrency(stats.netBalance);
+          el4.className = 'stat-value ' + (stats.netBalance >= 0 ? 'text-success' : 'text-danger');
+        }
+
+        // Update credit/debit ratio bar
+        var total = stats.totalCredits + stats.totalDebits;
+        var creditPct = total > 0 ? Math.round((stats.totalCredits / total) * 100) : 50;
+        var debitPct = total > 0 ? 100 - creditPct : 50;
+        var ratioCredit = document.getElementById('ratio-bar-credit');
+        var ratioDebit = document.getElementById('ratio-bar-debit');
+        var ratioLabel = document.getElementById('ratio-label');
+        if (ratioCredit) ratioCredit.style.width = creditPct + '%';
+        if (ratioDebit) ratioDebit.style.width = debitPct + '%';
+        if (ratioLabel) ratioLabel.textContent = creditPct + '% Credits / ' + debitPct + '% Debits';
+
+        // Update nav badges
+        self.updateNavBadges();
+
+        return self.renderRecentTransactions();
+      });
     });
   };
 

@@ -41,7 +41,7 @@ var BK = window.BK || {};
       
       var margin = 40;
       var pageWidth = doc.internal.pageSize.getWidth();
-      var accentColor = [99, 102, 241]; // Indigo
+      var accentColor = [0, 0, 0]; // Ink
       
       // ─── Header ───
       // Logo

@@ -43,6 +43,7 @@ var BK = window.BK || {};
       return db.accounts.add({
         name: account.name,
         accountNumber: account.accountNumber,
+        accountType: account.accountType || 'bank',
         openingBalance: parseFloat(account.openingBalance) || 0,
         createdAt: now,
         updatedAt: now
@@ -52,6 +53,7 @@ var BK = window.BK || {};
       return db.accounts.update(id, {
         name: data.name,
         accountNumber: data.accountNumber,
+        accountType: data.accountType || 'bank',
         openingBalance: parseFloat(data.openingBalance) || 0,
         updatedAt: new Date().toISOString()
       });
@@ -178,13 +180,26 @@ var BK = window.BK || {};
       return db.transactions.count();
     },
     getStats: function () {
-      return db.transactions.toArray().then(function (txns) {
+      return Promise.all([
+        db.accounts.toArray(),
+        db.transactions.toArray()
+      ]).then(function (results) {
+        var accounts = results[0];
+        var txns = results[1];
+        
+        var totalOpeningBalance = 0;
+        accounts.forEach(function (a) {
+          totalOpeningBalance += (a.openingBalance || 0);
+        });
+
         var totalCredits = 0, totalDebits = 0;
         txns.forEach(function (t) {
           if (t.type === 'credit') totalCredits += t.amount;
           else totalDebits += t.amount;
         });
-        return { totalCredits: totalCredits, totalDebits: totalDebits, netBalance: totalCredits - totalDebits, count: txns.length };
+        
+        var netBalance = totalOpeningBalance + totalCredits - totalDebits;
+        return { totalCredits: totalCredits, totalDebits: totalDebits, netBalance: netBalance, count: txns.length };
       });
     }
   };

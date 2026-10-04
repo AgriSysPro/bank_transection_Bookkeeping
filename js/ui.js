@@ -70,7 +70,16 @@ var BK = window.BK || {};
         page.classList.add('active');
       }
     });
-    var titles = { dashboard: 'Dashboard', accounts: 'Accounts', categories: 'Categories', transactions: 'Transactions', statements: 'Statements', settings: 'Settings & Backup' };
+    var titles = { 
+      dashboard: 'Dashboard', 
+      accounts: 'Accounts', 
+      receivables: 'Receivables (Owed to Me)',
+      payables: 'Payables (I Owe)',
+      categories: 'Categories', 
+      transactions: 'Transactions', 
+      statements: 'Statements', 
+      settings: 'Settings & Backup' 
+    };
     if (this.toolbarTitle) this.toolbarTitle.textContent = titles[pageName] || pageName;
     this.currentPage = pageName;
     if (this.onNavigate) this.onNavigate(pageName);
@@ -79,8 +88,8 @@ var BK = window.BK || {};
 
   // ─── Theme Manager ───
   function ThemeManager() {
-    this.theme = localStorage.getItem('bk-theme') || 'dark';
-    this.accent = localStorage.getItem('bk-accent') || 'indigo';
+    this.theme = localStorage.getItem('bk-theme') || 'light';
+    this.accent = localStorage.getItem('bk-accent') || 'aloe';
     this.applyTheme();
     var self = this;
     var btn = document.getElementById('btn-theme-toggle');
@@ -103,6 +112,7 @@ var BK = window.BK || {};
     this.theme = this.theme === 'dark' ? 'light' : 'dark';
     localStorage.setItem('bk-theme', this.theme);
     this.applyTheme();
+    if (BK.Charts) BK.Charts.renderAll();
   };
   ThemeManager.prototype.setAccent = function (accent) {
     this.accent = accent;

@@ -414,6 +414,7 @@ var BK = window.BK || {};
       
       if (isTransferCheck) {
         isTransferCheck.checked = txn ? !!txn.isTransfer : false;
+        isTransferCheck.disabled = !!txn;
         if (transferExtra) transferExtra.classList.toggle('hidden', !isTransferCheck.checked);
       }
 
@@ -476,7 +477,34 @@ var BK = window.BK || {};
     };
 
     var promise;
-    if (isTransfer && !self.editingId) {
+    if (self.editingId) {
+      promise = TDB.getById(self.editingId).then(function (existingTxn) {
+        if (existingTxn.isTransfer && existingTxn.relatedId) {
+          return TDB.getById(existingTxn.relatedId).then(function (relatedTxn) {
+            if (relatedTxn) {
+              var update1 = Object.assign({}, data, { type: existingTxn.type, accountId: existingTxn.accountId });
+              var update2 = Object.assign({}, data, { type: relatedTxn.type, accountId: relatedTxn.accountId, description: relatedTxn.description });
+              
+              if (existingTxn.type === 'debit') {
+                  update1.description = 'Transfer to target account: ' + data.description;
+                  update2.description = 'Transfer from source account: ' + data.description;
+                  if (toAccountId) update2.accountId = toAccountId;
+              } else {
+                  update1.description = 'Transfer from source account: ' + data.description;
+                  update2.description = 'Transfer to target account: ' + data.description;
+              }
+
+              return Promise.all([
+                TDB.update(self.editingId, update1),
+                TDB.update(relatedTxn.id, update2)
+              ]);
+            }
+            return TDB.update(self.editingId, data);
+          });
+        }
+        return TDB.update(self.editingId, data);
+      });
+    } else if (isTransfer) {
       // Create two transactions
       var debitTxn = Object.assign({}, data, { type: 'debit', description: 'Transfer to target account: ' + description });
       promise = TDB.add(debitTxn).then(function (id1) {
@@ -491,7 +519,7 @@ var BK = window.BK || {};
         });
       });
     } else {
-      promise = self.editingId ? TDB.update(self.editingId, data) : TDB.add(data);
+      promise = TDB.add(data);
     }
 
     return promise.then(function () {
@@ -508,7 +536,14 @@ var BK = window.BK || {};
     return Modal.confirm('Delete Transaction', 'Are you sure you want to delete this transaction?', 'danger')
       .then(function (confirmed) {
         if (!confirmed) return;
-        return TDB.delete(id).then(function () {
+        return TDB.getById(id).then(function (txn) {
+          if (!txn) return;
+          var p = TDB.delete(id);
+          if (txn.relatedId) {
+            p = p.then(function () { return TDB.delete(txn.relatedId); });
+          }
+          return p;
+        }).then(function () {
           Toast.success('Transaction deleted.');
           return self.render();
         }).then(function () {

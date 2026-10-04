@@ -2,7 +2,7 @@
 
 /**
  * Charts Module
- * Manages Chart.js visualizations for the dashboard.
+ * Manages Chart.js visualizations matching the Shopifi dual-canvas design language.
  */
 
 var BK = window.BK || {};
@@ -34,6 +34,8 @@ var BK = window.BK || {};
       var ctx = document.getElementById('chart-balance-trend');
       if (!ctx) return;
 
+      var isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+
       // Filter last 30 days
       var today = new Date();
       var thirtyDaysAgo = new Date();
@@ -45,7 +47,6 @@ var BK = window.BK || {};
 
       var labels = [];
       var dataPoints = [];
-      var currentBalance = 0; // Simplified trend, would be better with starting balance
 
       // Group by day
       var dayBalances = {};
@@ -66,18 +67,26 @@ var BK = window.BK || {};
 
       if (balanceChart) balanceChart.destroy();
 
+      var lineColor = isDark ? '#ffffff' : '#000000';
+      var areaColor = isDark ? 'rgba(255, 255, 255, 0.06)' : 'rgba(193, 251, 212, 0.45)'; /* Aloe-10 tint */
+      var gridColor = isDark ? 'rgba(255, 255, 255, 0.06)' : 'rgba(0, 0, 0, 0.05)';
+      var tickColor = isDark ? '#71717a' : '#a1a1aa';
+
       balanceChart = new Chart(ctx, {
         type: 'line',
         data: {
-          labels: labels,
+          labels: labels.length > 0 ? labels : ['No Data'],
           datasets: [{
-            label: 'Net Balance Change',
-            data: dataPoints,
-            borderColor: '#3b82f6',
-            backgroundColor: 'rgba(59, 130, 246, 0.1)',
+            label: 'Net Balance',
+            data: dataPoints.length > 0 ? dataPoints : [0],
+            borderColor: lineColor,
+            borderWidth: 2,
+            backgroundColor: areaColor,
             fill: true,
-            tension: 0.4,
-            pointRadius: 3,
+            tension: 0.35,
+            pointRadius: 2.5,
+            pointHoverRadius: 5,
+            pointBackgroundColor: lineColor,
             pointHitRadius: 10
           }]
         },
@@ -85,17 +94,25 @@ var BK = window.BK || {};
           responsive: true,
           maintainAspectRatio: false,
           plugins: {
-            legend: { display: false }
+            legend: { display: false },
+            tooltip: {
+              backgroundColor: isDark ? '#1e2c31' : '#000000',
+              titleFont: { family: 'Inter', size: 12 },
+              bodyFont: { family: 'Inter', size: 12 },
+              padding: 10,
+              cornerRadius: 9999,
+              displayColors: false
+            }
           },
           scales: {
-            y: { 
+            y: {
               beginAtZero: false,
-              grid: { color: 'rgba(128,128,128,0.1)' },
-              ticks: { font: { size: 10 } }
+              grid: { color: gridColor, drawBorder: false },
+              ticks: { font: { family: 'Inter', size: 10.5 }, color: tickColor }
             },
-            x: { 
+            x: {
               grid: { display: false },
-              ticks: { font: { size: 10 } }
+              ticks: { font: { family: 'Inter', size: 10.5 }, color: tickColor }
             }
           }
         }
@@ -105,6 +122,8 @@ var BK = window.BK || {};
     renderCategoryExpenses: function (transactions, categories) {
       var ctx = document.getElementById('chart-category-expenses');
       if (!ctx) return;
+
+      var isDark = document.documentElement.getAttribute('data-theme') === 'dark';
 
       var expenseTxns = transactions.filter(function (t) { return t.type === 'debit' && t.categoryId; });
       var categoryMap = {};
@@ -120,15 +139,18 @@ var BK = window.BK || {};
 
       var labels = Object.keys(totals);
       var dataPoints = Object.values(totals);
-      var colors = labels.map(function (name) {
+
+      var brandPalette = ['#c1fbd4', '#d4f9e0', '#000000', '#71717a', '#d4d4d8', '#99b3ad', '#3f3f46'];
+      if (isDark) brandPalette = ['#ffffff', '#99b3ad', '#1e2c31', '#71717a', '#d4d4d8', '#52525b'];
+
+      var colors = labels.map(function (name, idx) {
         var cat = categories.find(function (c) { return c.name === name; });
-        return cat ? cat.color : '#94a3b8';
+        return (cat && cat.color) ? cat.color : brandPalette[idx % brandPalette.length];
       });
 
       if (categoryChart) categoryChart.destroy();
 
       if (labels.length === 0) {
-        // Show empty state if no data
         return;
       }
 
@@ -140,7 +162,7 @@ var BK = window.BK || {};
             data: dataPoints,
             backgroundColor: colors,
             borderWidth: 0,
-            hoverOffset: 4
+            hoverOffset: 6
           }]
         },
         options: {
@@ -150,14 +172,25 @@ var BK = window.BK || {};
             legend: {
               position: 'bottom',
               labels: {
-                boxWidth: 12,
-                padding: 15,
+                boxWidth: 10,
+                boxHeight: 10,
+                padding: 12,
                 usePointStyle: true,
-                font: { size: 11 }
+                pointStyle: 'circle',
+                font: { family: 'Inter', size: 11 },
+                color: isDark ? '#a1a1aa' : '#71717a'
               }
+            },
+            tooltip: {
+              backgroundColor: isDark ? '#1e2c31' : '#000000',
+              titleFont: { family: 'Inter', size: 12 },
+              bodyFont: { family: 'Inter', size: 12 },
+              padding: 10,
+              cornerRadius: 9999,
+              displayColors: true
             }
           },
-          cutout: '70%'
+          cutout: '74%'
         }
       });
     }

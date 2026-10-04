@@ -23,20 +23,33 @@ var BK = window.BK || {};
     if (form) form.addEventListener('submit', function (e) { e.preventDefault(); self.saveAccount(); });
 
     var addBtn = document.getElementById('btn-add-account');
-    if (addBtn) addBtn.addEventListener('click', function () { self.showForm(); });
+    if (addBtn) addBtn.addEventListener('click', function () { self.showForm(null, 'bank'); });
+
+    var addRecBtn = document.getElementById('btn-add-receivable');
+    if (addRecBtn) addRecBtn.addEventListener('click', function () { self.showForm(null, 'receivable'); });
+
+    var addPayBtn = document.getElementById('btn-add-payable');
+    if (addPayBtn) addPayBtn.addEventListener('click', function () { self.showForm(null, 'payable'); });
   };
 
   AccountsController.prototype.render = function () {
     var self = this;
     return DB.getAll().then(function (accounts) {
-      var grid = document.getElementById('accounts-grid');
-      if (!grid) return;
-      U.clearChildren(grid);
+      var gridBank = document.getElementById('accounts-grid');
+      var gridRec = document.getElementById('receivables-grid');
+      var gridPay = document.getElementById('payables-grid');
 
-      if (accounts.length === 0) {
-        grid.appendChild(self.renderEmpty());
-        return;
-      }
+      if (gridBank) U.clearChildren(gridBank);
+      if (gridRec) U.clearChildren(gridRec);
+      if (gridPay) U.clearChildren(gridPay);
+
+      var bankAccs = accounts.filter(function(a) { return !a.accountType || a.accountType === 'bank'; });
+      var recAccs = accounts.filter(function(a) { return a.accountType === 'receivable'; });
+      var payAccs = accounts.filter(function(a) { return a.accountType === 'payable'; });
+
+      if (gridBank && bankAccs.length === 0) gridBank.appendChild(self.renderEmpty('bank', 'Create your first bank account to begin tracking your transactions.', 'fas fa-university'));
+      if (gridRec && recAccs.length === 0) gridRec.appendChild(self.renderEmpty('receivable', 'Add a person or business that owes you money.', 'fas fa-hand-holding-usd'));
+      if (gridPay && payAccs.length === 0) gridPay.appendChild(self.renderEmpty('payable', 'Add a person or business that you owe money to.', 'fas fa-file-invoice-dollar'));
 
       var promises = accounts.map(function (account) {
         return Promise.all([
@@ -49,23 +62,37 @@ var BK = window.BK || {};
 
       return Promise.all(promises).then(function (results) {
         results.forEach(function (r) {
-          grid.appendChild(self.renderAccountCard(r.account, r.balance, r.txnCount));
+          var type = r.account.accountType || 'bank';
+          if (type === 'bank' && gridBank) gridBank.appendChild(self.renderAccountCard(r.account, r.balance, r.txnCount));
+          else if (type === 'receivable' && gridRec) gridRec.appendChild(self.renderAccountCard(r.account, r.balance, r.txnCount));
+          else if (type === 'payable' && gridPay) gridPay.appendChild(self.renderAccountCard(r.account, r.balance, r.txnCount));
         });
       });
     });
   };
 
-  AccountsController.prototype.renderEmpty = function () {
+  AccountsController.prototype.renderEmpty = function (type, subtitle, iconClass) {
     var self = this;
+    var btnText = ' Create My First Account';
+    var btnClass = 'btn btn-primary btn-lg';
+    
+    if (type === 'receivable') {
+      btnText = ' Add New Receivable';
+      btnClass = 'btn btn-aloe btn-lg';
+    } else if (type === 'payable') {
+      btnText = ' Add New Payable';
+      btnClass = 'btn btn-outline btn-lg text-danger';
+    }
+
     return U.createElement('div', { 
       className: 'table-empty', 
       style: { gridColumn: '1 / -1', padding: '100px 20px', background: 'var(--bg-card)', borderRadius: 'var(--radius-lg)', border: '1px dashed var(--border-primary)' } 
     }, [
-      U.createElement('i', { className: 'fas fa-university', style: { color: 'var(--primary)', opacity: '0.6' } }),
-      U.createElement('p', { style: { fontSize: '18px', fontWeight: '600', color: 'var(--text-primary)' } }, ['Your Financial Journey Starts Here']),
-      U.createElement('p', { style: { fontSize: '14px', color: 'var(--text-secondary)', marginBottom: '24px' } }, ['Create your first account to begin tracking your bank transactions and performance.']),
-      U.createElement('button', { className: 'btn btn-primary btn-lg', onClick: function () { self.showForm(); } }, [
-        U.createElement('i', { className: 'fas fa-plus' }), ' Create My First Account'
+      U.createElement('i', { className: iconClass, style: { color: 'var(--primary)', opacity: '0.6' } }),
+      U.createElement('p', { style: { fontSize: '18px', fontWeight: '600', color: 'var(--text-primary)' } }, ['Nothing here yet']),
+      U.createElement('p', { style: { fontSize: '14px', color: 'var(--text-secondary)', marginBottom: '24px' } }, [subtitle]),
+      U.createElement('button', { className: btnClass, onClick: function () { self.showForm(null, type); } }, [
+        U.createElement('i', { className: 'fas fa-plus' }), btnText
       ])
     ]);
   };
@@ -99,17 +126,19 @@ var BK = window.BK || {};
     ]);
   };
 
-  AccountsController.prototype.showForm = function (account) {
+  AccountsController.prototype.showForm = function (account, prefillType) {
     this.editingId = account ? account.id : null;
     var title = document.getElementById('account-modal-title');
     var nameInput = document.getElementById('account-name');
     var numberInput = document.getElementById('account-number');
     var balanceInput = document.getElementById('account-opening-balance');
+    var typeInput = document.getElementById('account-type');
 
     if (title) title.textContent = account ? 'Edit Account' : 'New Account';
     if (nameInput) nameInput.value = account ? account.name : '';
     if (numberInput) numberInput.value = account ? account.accountNumber : '';
     if (balanceInput) balanceInput.value = account ? account.openingBalance : '';
+    if (typeInput) typeInput.value = account ? (account.accountType || 'bank') : (prefillType || 'bank');
 
     document.querySelectorAll('#account-form .form-group').forEach(function (g) { g.classList.remove('has-error'); });
     Modal.open('modal-account');
@@ -120,10 +149,12 @@ var BK = window.BK || {};
     var nameInput = document.getElementById('account-name');
     var numberInput = document.getElementById('account-number');
     var balanceInput = document.getElementById('account-opening-balance');
+    var typeInput = document.getElementById('account-type');
 
     var name = nameInput.value.trim();
     var accountNumber = numberInput.value.trim();
     var openingBalance = balanceInput.value.trim();
+    var accountType = typeInput ? typeInput.value : 'bank';
     var valid = true;
 
     if (!U.validateRequired(name)) {
@@ -142,7 +173,7 @@ var BK = window.BK || {};
 
     if (!valid) { Toast.warning('Please fix the highlighted fields.'); return; }
 
-    var data = { name: U.sanitize(name), accountNumber: U.sanitize(accountNumber), openingBalance: parseFloat(openingBalance) || 0 };
+    var data = { name: U.sanitize(name), accountNumber: U.sanitize(accountNumber), accountType: accountType, openingBalance: parseFloat(openingBalance) || 0 };
 
     var action = self.editingId ? DB.update(self.editingId, data) : DB.add(data);
     return action.then(function () {
@@ -174,11 +205,23 @@ var BK = window.BK || {};
     return DB.getAll().then(function (accounts) {
       U.clearChildren(selectEl);
       selectEl.appendChild(U.createElement('option', { value: '' }, ['-- Select Account --']));
+      
+      var banks = U.createElement('optgroup', { label: 'Bank & Cash' });
+      var recs = U.createElement('optgroup', { label: 'Receivables (Owed to Me)' });
+      var pays = U.createElement('optgroup', { label: 'Payables (I Owe)' });
+
       accounts.forEach(function (acc) {
         var opt = U.createElement('option', { value: String(acc.id) }, [U.escapeHtml(acc.name)]);
         if (selectedId && acc.id === selectedId) opt.selected = true;
-        selectEl.appendChild(opt);
+        
+        if (acc.accountType === 'receivable') recs.appendChild(opt);
+        else if (acc.accountType === 'payable') pays.appendChild(opt);
+        else banks.appendChild(opt);
       });
+
+      if (banks.children.length > 0) selectEl.appendChild(banks);
+      if (recs.children.length > 0) selectEl.appendChild(recs);
+      if (pays.children.length > 0) selectEl.appendChild(pays);
     });
   };
 

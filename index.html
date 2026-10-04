@@ -1,14 +1,15 @@
 <!DOCTYPE html>
-<html lang="en" data-theme="dark">
+<html lang="en" data-theme="light">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="description" content="Bank Transaction Bookkeeping — A professional client-side accounting application for managing accounts, transactions, and generating statements.">
   <title>Bank Transaction Bookkeeping</title>
 
-  <!-- Google Fonts -->
+  <!-- Google Fonts: Inter Display & Inter Variable -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter+Display:wght@300;400;500;600;700&family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
 
   <!-- Font Awesome Icons -->
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
@@ -43,7 +44,7 @@
         <label class="form-label" for="auth-password">Password</label>
         <input type="password" class="form-control" id="auth-password" required autocomplete="current-password">
       </div>
-      <button type="submit" class="btn btn-primary btn-lg" style="width:100%; margin-top:12px;" id="btn-auth-submit">
+      <button type="submit" class="btn btn-outline-on-dark btn-lg" style="width:100%; margin-top:12px;" id="btn-auth-submit">
         Login
       </button>
     </form>
@@ -77,8 +78,16 @@
         <span class="nav-label">Transactions</span>
         <span class="nav-badge" id="nav-badge-transactions"></span>
       </button>
-      <button class="nav-item" data-page="statements" id="nav-statements">
+      <button class="nav-item" data-page="receivables" id="nav-receivables">
+        <i class="fas fa-hand-holding-usd"></i>
+        <span class="nav-label">Receivables</span>
+      </button>
+      <button class="nav-item" data-page="payables" id="nav-payables">
         <i class="fas fa-file-invoice-dollar"></i>
+        <span class="nav-label">Payables</span>
+      </button>
+      <button class="nav-item" data-page="statements" id="nav-statements">
+        <i class="fas fa-file-signature"></i>
         <span class="nav-label">Statements</span>
       </button>
       <button class="nav-item" data-page="categories" id="nav-categories">
@@ -94,7 +103,7 @@
     <div class="sidebar-footer">
       <div class="nav-item" style="cursor:default; font-size:11px; color:var(--text-muted); gap:8px;">
         <i class="fas fa-keyboard" style="font-size:12px;"></i>
-        <span class="nav-label">Alt+1‑5 Navigate</span>
+        <span class="nav-label">Alt+1‑6 Navigate</span>
       </div>
     </div>
   </aside>
@@ -139,30 +148,30 @@
         </div>
 
         <!-- Consolidated High-Level Metrics -->
-        <div class="stats-grid mb-3" style="grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)) !important;">
-          <div class="stat-card primary" style="border-bottom: 4px solid var(--primary);">
+        <div class="stats-grid mb-3" style="grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));">
+          <div class="stat-card primary">
             <div class="stat-icon"><i class="fas fa-gem"></i></div>
             <div class="stat-label">Total Net Worth</div>
-            <div class="stat-value" id="stat-total-net-worth" style="font-size:24px;">Rs. 0.00</div>
+            <div class="stat-value" id="stat-total-net-worth">Rs. 0.00</div>
           </div>
-          <div class="stat-card success" style="border-bottom: 4px solid var(--success);">
+          <div class="stat-card success">
             <div class="stat-icon"><i class="fas fa-wallet"></i></div>
             <div class="stat-label">Liquid Assets</div>
             <div class="stat-value" id="stat-total-assets">Rs. 0.00</div>
           </div>
-          <div class="stat-card danger" style="border-bottom: 4px solid var(--danger);">
+          <div class="stat-card info">
             <div class="stat-icon"><i class="fas fa-hand-holding-usd"></i></div>
-            <div class="stat-label">Total Liabilities</div>
-            <div class="stat-value" id="stat-total-liabilities">Rs. 0.00</div>
+            <div class="stat-label">Receivables</div>
+            <div class="stat-value" id="stat-total-receivables">Rs. 0.00</div>
           </div>
-          <div class="stat-card info" style="border-bottom: 4px solid var(--info);">
-            <div class="stat-icon"><i class="fas fa-university"></i></div>
-            <div class="stat-label">Active Accounts</div>
-            <div class="stat-value" id="stat-total-accounts">0</div>
+          <div class="stat-card danger">
+            <div class="stat-icon"><i class="fas fa-file-invoice-dollar"></i></div>
+            <div class="stat-label">Total Payables</div>
+            <div class="stat-value" id="stat-total-payables">Rs. 0.00</div>
           </div>
         </div>
 
-        <div class="stats-grid mb-3">
+        <div class="stats-grid mb-3" style="grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));">
           <div class="stat-card success">
             <div class="stat-icon"><i class="fas fa-arrow-down"></i></div>
             <div class="stat-label">Total Credits</div>
@@ -177,6 +186,11 @@
             <div class="stat-icon"><i class="fas fa-balance-scale"></i></div>
             <div class="stat-label">Current Period Balance</div>
             <div class="stat-value" id="stat-net-balance">Rs. 0.00</div>
+          </div>
+          <div class="stat-card primary">
+            <div class="stat-icon"><i class="fas fa-university"></i></div>
+            <div class="stat-label">Active Accounts</div>
+            <div class="stat-value" id="stat-total-accounts">0</div>
           </div>
         </div>
 
@@ -244,6 +258,28 @@
         <div class="accounts-grid" id="accounts-grid"></div>
       </section>
 
+      <!-- ══════ Receivables Page ══════ -->
+      <section class="page" id="page-receivables">
+        <div class="page-header">
+          <h2>Receivables (Owed to Me)</h2>
+          <button class="btn btn-aloe" id="btn-add-receivable">
+            <i class="fas fa-plus"></i> New Receivable
+          </button>
+        </div>
+        <div class="accounts-grid" id="receivables-grid"></div>
+      </section>
+
+      <!-- ══════ Payables Page ══════ -->
+      <section class="page" id="page-payables">
+        <div class="page-header">
+          <h2>Payables (I Owe)</h2>
+          <button class="btn btn-outline text-danger" id="btn-add-payable">
+            <i class="fas fa-plus"></i> New Payable
+          </button>
+        </div>
+        <div class="accounts-grid" id="payables-grid"></div>
+      </section>
+
       <!-- ══════ Transactions Page ══════ -->
       <section class="page" id="page-transactions">
         <div class="page-header">
@@ -267,9 +303,9 @@
                 <option value="debit">Debit</option>
               </select>
             </div>
-            <!-- Bulk Actions Toolbar (New Phase 5) -->
-            <div id="bulk-actions-toolbar" class="hidden d-flex gap-2 align-center p-2" style="background:var(--primary-light); border-radius:var(--radius-md); border:1px solid var(--primary);">
-              <span id="bulk-selection-count" style="font-size:12px; font-weight:600; color:var(--primary); margin:0 12px;">0 items selected</span>
+            <!-- Bulk Actions Toolbar -->
+            <div id="bulk-actions-toolbar" class="hidden d-flex gap-2 align-center" style="background:var(--bg-card); border-radius:var(--radius-pill); border:1px solid var(--border-primary); box-shadow:var(--shadow-md); padding:4px 14px;">
+              <span id="bulk-selection-count" style="font-size:12px; font-weight:600; color:var(--text-primary); margin:0 8px;">0 items selected</span>
               <button class="btn btn-sm btn-ghost text-danger" id="btn-bulk-delete" title="Delete Selected">
                 <i class="fas fa-trash-alt"></i> Delete
               </button>
@@ -373,7 +409,7 @@
           <button class="btn btn-primary" id="btn-export-excel" title="Download statement as Excel file (.xlsx)">
             <i class="fas fa-file-excel"></i> Export Excel
           </button>
-          <button class="btn btn-success" id="btn-export-pdf" title="Download statement as high-quality PDF">
+          <button class="btn btn-aloe" id="btn-export-pdf" title="Download statement as high-quality PDF">
             <i class="fas fa-file-pdf"></i> Export PDF
           </button>
         </div>
@@ -403,10 +439,10 @@
             <button class="btn btn-outline" id="btn-import-data">
               <i class="fas fa-upload"></i> Import Backup
             </button>
-            <button class="btn btn-info" id="btn-import-csv">
+            <button class="btn btn-outline" id="btn-import-csv">
               <i class="fas fa-file-csv"></i> Import Bank CSV
             </button>
-            <button class="btn btn-success" id="btn-export-all-excel">
+            <button class="btn btn-aloe" id="btn-export-all-excel">
               <i class="fas fa-file-excel"></i> Export All Accounts (Excel)
             </button>
           </div>
@@ -472,10 +508,10 @@
           <div class="form-group">
             <label class="form-label">Accent Color Theme</label>
             <div class="d-flex gap-2 mt-1">
-              <button class="btn btn-outline accent-btn" data-accent="indigo" style="border-left: 4px solid #6366f1;">Indigo</button>
-              <button class="btn btn-outline accent-btn" data-accent="emerald" style="border-left: 4px solid #10b981;">Emerald</button>
-              <button class="btn btn-outline accent-btn" data-accent="cobalt" style="border-left: 4px solid #0ea5e9;">Cobalt</button>
-              <button class="btn btn-outline accent-btn" data-accent="rose" style="border-left: 4px solid #f43f5e;">Rose</button>
+              <button class="btn btn-outline accent-btn" data-accent="aloe" style="border-left: 4px solid #c1fbd4;">Aloe</button>
+              <button class="btn btn-outline accent-btn" data-accent="pistachio" style="border-left: 4px solid #d4f9e0;">Pistachio</button>
+              <button class="btn btn-outline accent-btn" data-accent="mint" style="border-left: 4px solid #99b3ad;">Cool Mint</button>
+              <button class="btn btn-outline accent-btn" data-accent="monochrome" style="border-left: 4px solid #000000;">Monochrome</button>
             </div>
           </div>
           <div class="form-group mt-3">
@@ -484,7 +520,7 @@
               <button class="btn btn-outline" onclick="BK.Navigation.prototype.navigateTo.call(BK.app.navigation, 'categories')">
                 <i class="fas fa-tags"></i> Manage Categories
               </button>
-              <button class="btn btn-danger btn-outline" id="btn-logout" onclick="BK.app.auth.logout()">
+              <button class="btn btn-outline text-danger" id="btn-logout" onclick="BK.app.auth.logout()">
                 <i class="fas fa-sign-out-alt"></i> Logout
               </button>
             </div>
@@ -493,16 +529,18 @@
 
         <div class="card">
           <h3 style="font-size:15px; font-weight:700; margin-bottom:16px;">
-            <i class="fas fa-keyboard" style="color:var(--primary); margin-right:8px;"></i>
+            <i class="fas fa-keyboard" style="color:var(--text-primary); margin-right:8px;"></i>
             Keyboard Shortcuts
           </h3>
           <table style="max-width:400px;">
             <tbody>
               <tr><td style="font-weight:600; padding:8px 16px;">Alt + 1</td><td>Dashboard</td></tr>
               <tr><td style="font-weight:600; padding:8px 16px;">Alt + 2</td><td>Accounts</td></tr>
-              <tr><td style="font-weight:600; padding:8px 16px;">Alt + 3</td><td>Transactions</td></tr>
-              <tr><td style="font-weight:600; padding:8px 16px;">Alt + 4</td><td>Statements</td></tr>
-              <tr><td style="font-weight:600; padding:8px 16px;">Alt + 5</td><td>Settings</td></tr>
+              <tr><td style="font-weight:600; padding:8px 16px;">Alt + 3</td><td>Categories</td></tr>
+              <tr><td style="font-weight:600; padding:8px 16px;">Alt + 4</td><td>Transactions</td></tr>
+              <tr><td style="font-weight:600; padding:8px 16px;">Alt + 5</td><td>Statements</td></tr>
+              <tr><td style="font-weight:600; padding:8px 16px;">Alt + 6</td><td>Settings</td></tr>
+              <tr><td style="font-weight:600; padding:8px 16px;">Ctrl + K</td><td>Command Palette</td></tr>
               <tr><td style="font-weight:600; padding:8px 16px;">Ctrl + F</td><td>Focus Search</td></tr>
               <tr><td style="font-weight:600; padding:8px 16px;">Esc</td><td>Close Modal</td></tr>
             </tbody>
@@ -537,6 +575,14 @@
     </div>
     <div class="modal-body">
       <form id="account-form" novalidate>
+        <div class="form-group">
+          <label class="form-label" for="account-type">Account Type *</label>
+          <select class="form-control" id="account-type" required>
+            <option value="bank">Bank / Cash (Asset)</option>
+            <option value="receivable">Receivable (Owed to Me)</option>
+            <option value="payable">Payable (I Owe)</option>
+          </select>
+        </div>
         <div class="form-group">
           <label class="form-label" for="account-name">Account Name *</label>
           <input type="text" class="form-control" id="account-name" placeholder="e.g. Business Checking" required>
@@ -672,7 +718,7 @@
             <button type="button" class="remove-file" id="btn-remove-receipt" title="Remove">
               <i class="fas fa-times"></i>
             </button>
-            <button type="button" class="btn btn-sm btn-info" id="btn-ocr-extract" style="margin-left:12px; font-size:11px; padding:4px 8px;">
+            <button type="button" class="btn btn-sm btn-outline" id="btn-ocr-extract" style="margin-left:12px; font-size:11px; padding:4px 8px;">
               <i class="fas fa-magic"></i> Extract Data (OCR)
             </button>
           </div>
@@ -802,7 +848,6 @@
 <script src="js/commands.js"></script>
 <script src="js/automation.js"></script>
 <script src="js/receipts.js"></script>
-<script src="js/charts.js"></script>
 <script src="js/charts.js"></script>
 <script src="js/transactions.js"></script>
 <script src="js/statements.js"></script>
