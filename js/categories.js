@@ -58,41 +58,71 @@ var BK = window.BK || {};
         return;
       }
 
-      categories.forEach(function (cat) {
-        var row = U.createElement('tr', {}, [
-          U.createElement('td', { style: { fontWeight: '600' } }, [cat.name]),
-          U.createElement('td', {}, [
-            U.createElement('span', { className: 'badge ' + (cat.type === 'income' ? 'badge-credit' : 'badge-debit') }, [
-              cat.type.charAt(0).toUpperCase() + cat.type.slice(1)
+      var now = new Date();
+      var firstDay = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
+      
+      return BK.TransactionsDB.getAll().then(function(txns) {
+        var spentByCat = {};
+        txns.forEach(function(t) {
+          if (t.type === 'debit' && t.date >= firstDay && t.categoryId) {
+            spentByCat[t.categoryId] = (spentByCat[t.categoryId] || 0) + t.amount;
+          }
+        });
+
+        categories.forEach(function (cat) {
+          var spent = spentByCat[cat.id] || 0;
+          var budgetCol = U.createElement('td', {});
+          
+          if (cat.type === 'expense' && cat.monthlyBudget > 0) {
+            var percent = Math.min(100, Math.round((spent / cat.monthlyBudget) * 100));
+            var barColor = percent > 90 ? 'var(--danger)' : (percent > 75 ? 'var(--warning)' : 'var(--primary)');
+            budgetCol.appendChild(U.createElement('div', { style: { fontSize: '11px', marginBottom: '4px', display: 'flex', justifyContent: 'space-between' } }, [
+              U.createElement('span', {}, [U.formatCurrency(spent) + ' spent']),
+              U.createElement('span', { className: 'text-muted' }, ['of ' + U.formatCurrency(cat.monthlyBudget)])
+            ]));
+            budgetCol.appendChild(U.createElement('div', { style: { height: '6px', background: 'var(--bg-secondary)', borderRadius: '3px', overflow: 'hidden' } }, [
+              U.createElement('div', { style: { width: percent + '%', height: '100%', background: barColor, borderRadius: '3px' } })
+            ]));
+          } else {
+            budgetCol.appendChild(U.createElement('span', { className: 'text-muted', style: { fontSize: '12px' } }, ['No limit set']));
+          }
+
+          var row = U.createElement('tr', {}, [
+            U.createElement('td', { style: { fontWeight: '600' } }, [cat.name]),
+            U.createElement('td', {}, [
+              U.createElement('span', { className: 'badge ' + (cat.type === 'income' ? 'badge-credit' : 'badge-debit') }, [
+                cat.type.charAt(0).toUpperCase() + cat.type.slice(1)
+              ])
+            ]),
+            U.createElement('td', {}, [
+              U.createElement('div', { 
+                style: { 
+                  width: '24px', 
+                  height: '24px', 
+                  borderRadius: 'var(--radius-sm)', 
+                  backgroundColor: cat.color,
+                  border: '1px solid var(--border-color)'
+                } 
+              })
+            ]),
+            budgetCol,
+            U.createElement('td', {}, [
+              U.createElement('div', { className: 'action-btns' }, [
+                U.createElement('button', { 
+                  className: 'btn btn-icon btn-ghost', 
+                  title: 'Edit', 
+                  onClick: function () { self.showForm(cat); } 
+                }, [U.createElement('i', { className: 'fas fa-pen' })]),
+                U.createElement('button', { 
+                  className: 'btn btn-icon btn-ghost text-danger', 
+                  title: 'Delete', 
+                  onClick: function () { self.deleteCategory(cat.id); } 
+                }, [U.createElement('i', { className: 'fas fa-trash-alt' })])
+              ])
             ])
-          ]),
-          U.createElement('td', {}, [
-            U.createElement('div', { 
-              style: { 
-                width: '24px', 
-                height: '24px', 
-                borderRadius: '4px', 
-                backgroundColor: cat.color,
-                border: '1px solid var(--border-color)'
-              } 
-            })
-          ]),
-          U.createElement('td', {}, [
-            U.createElement('div', { className: 'action-btns' }, [
-              U.createElement('button', { 
-                className: 'btn btn-icon btn-ghost', 
-                title: 'Edit', 
-                onClick: function () { self.showForm(cat); } 
-              }, [U.createElement('i', { className: 'fas fa-pen' })]),
-              U.createElement('button', { 
-                className: 'btn btn-icon btn-ghost text-danger', 
-                title: 'Delete', 
-                onClick: function () { self.deleteCategory(cat.id); } 
-              }, [U.createElement('i', { className: 'fas fa-trash-alt' })])
-            ])
-          ])
-        ]);
-        tbody.appendChild(row);
+          ]);
+          tbody.appendChild(row);
+        });
       });
     });
   };
@@ -103,11 +133,24 @@ var BK = window.BK || {};
     var nameInput = document.getElementById('cat-name');
     var typeInput = document.getElementById('cat-type');
     var colorInput = document.getElementById('cat-color');
+    var budgetInput = document.getElementById('cat-budget');
 
     if (title) title.textContent = cat ? 'Edit Category' : 'New Category';
     if (nameInput) nameInput.value = cat ? cat.name : '';
     if (typeInput) typeInput.value = cat ? cat.type : 'expense';
     if (colorInput) colorInput.value = cat ? cat.color : '#3b82f6';
+    if (budgetInput) budgetInput.value = cat && cat.monthlyBudget ? cat.monthlyBudget : '';
+
+    // Show budget field only if type is 'expense'
+    var budgetGroup = document.getElementById('budget-group');
+    if (budgetGroup) {
+      budgetGroup.style.display = typeInput && typeInput.value === 'expense' ? 'block' : 'none';
+      if (typeInput) {
+        typeInput.onchange = function() {
+          budgetGroup.style.display = this.value === 'expense' ? 'block' : 'none';
+        };
+      }
+    }
 
     Modal.open('modal-category');
   };
@@ -117,17 +160,19 @@ var BK = window.BK || {};
     var nameInput = document.getElementById('cat-name');
     var typeInput = document.getElementById('cat-type');
     var colorInput = document.getElementById('cat-color');
+    var budgetInput = document.getElementById('cat-budget');
 
     var name = nameInput.value.trim();
     var type = typeInput.value;
     var color = colorInput.value;
+    var budget = budgetInput && type === 'expense' ? budgetInput.value.trim() : 0;
 
     if (!name) {
       Toast.warning('Category name is required.');
       return;
     }
 
-    var data = { name: name, type: type, color: color };
+    var data = { name: name, type: type, color: color, monthlyBudget: parseFloat(budget) || 0 };
     var action = self.editingId ? CDB.update(self.editingId, data) : CDB.add(data);
 
     action.then(function () {

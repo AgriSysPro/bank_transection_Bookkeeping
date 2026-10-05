@@ -142,4 +142,77 @@ var BK = window.BK || {};
       BK.Toast.success('A4 Receipt generated successfully.');
     }
   };
+
+  /**
+   * Receipts Vault Controller
+   * Renders the gallery of attached receipts
+   */
+  function ReceiptsVaultController() {}
+
+  ReceiptsVaultController.prototype.render = function () {
+    var gallery = document.getElementById('receipts-gallery');
+    if (!gallery) return;
+
+    U.clearChildren(gallery);
+
+    BK.TransactionsDB.getAll().then(function (txns) {
+      var receiptTxns = txns.filter(function (t) { return t.receiptData; });
+
+      if (receiptTxns.length === 0) {
+        gallery.style.display = 'block';
+        gallery.appendChild(U.createElement('div', { 
+          className: 'table-empty', 
+          style: { padding: '60px 20px' } 
+        }, [
+          U.createElement('i', { className: 'fas fa-image', style: { fontSize: '48px', color: 'var(--primary)', opacity: '0.4' } }),
+          U.createElement('p', { style: { fontWeight: '600', fontSize: '18px', marginTop: '16px' } }, ['No Receipts Found']),
+          U.createElement('p', { style: { color: 'var(--text-secondary)' } }, ['Attach images or PDFs to your transactions to see them here.'])
+        ]));
+        return;
+      }
+
+      gallery.style.display = 'grid';
+
+      receiptTxns.forEach(function (txn) {
+        var isImg = txn.receiptType && txn.receiptType.startsWith('image/');
+        
+        var preview = isImg ? U.createElement('img', { 
+          src: txn.receiptData, 
+          style: { width: '100%', height: '160px', objectFit: 'cover', borderTopLeftRadius: 'var(--radius-lg)', borderTopRightRadius: 'var(--radius-lg)' } 
+        }) : U.createElement('div', { 
+          style: { width: '100%', height: '160px', background: 'var(--bg-secondary)', display: 'flex', alignItems: 'center', justifyContent: 'center', borderTopLeftRadius: 'var(--radius-lg)', borderTopRightRadius: 'var(--radius-lg)' } 
+        }, [
+          U.createElement('i', { className: 'fas fa-file-pdf', style: { fontSize: '48px', color: 'var(--danger)' } })
+        ]);
+
+        var card = U.createElement('div', { 
+          className: 'card', 
+          style: { padding: '0', cursor: 'pointer', transition: 'transform 0.2s', overflow: 'hidden' },
+          onClick: function () {
+            if (isImg) {
+              var w = window.open("");
+              w.document.write('<img src="' + txn.receiptData + '" style="max-width:100%;">');
+            } else {
+              var pdfWindow = window.open("");
+              pdfWindow.document.write('<iframe width="100%" height="100%" src="' + txn.receiptData + '"></iframe>');
+            }
+          }
+        }, [
+          preview,
+          U.createElement('div', { style: { padding: '16px' } }, [
+            U.createElement('div', { style: { fontWeight: '600', fontSize: '16px', marginBottom: '4px' } }, [U.formatCurrency(txn.amount)]),
+            U.createElement('div', { style: { fontSize: '13px', color: 'var(--text-secondary)', marginBottom: '8px' } }, [U.formatDate(txn.date)]),
+            U.createElement('div', { style: { fontSize: '14px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' } }, [txn.description || 'No Description'])
+          ])
+        ]);
+        
+        card.onmouseover = function() { card.style.transform = 'translateY(-4px)'; card.style.boxShadow = 'var(--shadow-md)'; };
+        card.onmouseout = function() { card.style.transform = 'none'; card.style.boxShadow = 'var(--shadow-sm)'; };
+        
+        gallery.appendChild(card);
+      });
+    });
+  };
+
+  BK.ReceiptsVaultController = ReceiptsVaultController;
 })();

@@ -94,6 +94,10 @@
         <i class="fas fa-tags"></i>
         <span class="nav-label">Categories</span>
       </button>
+      <button class="nav-item" data-page="receipts" id="nav-receipts">
+        <i class="fas fa-receipt"></i>
+        <span class="nav-label">Receipt Vault</span>
+      </button>
       <button class="nav-item" data-page="settings" id="nav-settings">
         <i class="fas fa-cog"></i>
         <span class="nav-label">Settings</span>
@@ -362,6 +366,7 @@
                   <th>Name</th>
                   <th>Type</th>
                   <th>Color</th>
+                  <th style="width:200px;">Monthly Budget</th>
                   <th>Actions</th>
                 </tr>
               </thead>
@@ -372,6 +377,16 @@
       </section>
 
       <!-- ══════ Statements Page ══════ -->
+      <!-- Receipt Vault Page -->
+      <section class="page" id="page-receipts">
+        <div class="page-header">
+          <h2>Receipt Vault</h2>
+        </div>
+        <div class="card" style="background:transparent; border:none; padding:0; box-shadow:none;">
+          <div id="receipts-gallery" style="display:grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap:24px;"></div>
+        </div>
+      </section>
+
       <section class="page" id="page-statements">
         <div class="page-header">
           <h2>Account Statement</h2>
@@ -599,9 +614,13 @@
           <input type="text" class="form-control" id="account-number" placeholder="e.g. XXXX-1234">
         </div>
         <div class="form-group">
-          <label class="form-label" for="account-opening-balance">Opening Balance</label>
-          <input type="number" class="form-control" id="account-opening-balance" placeholder="0.00" step="0.01" min="0">
+          <label class="form-label" for="account-opening-balance">Opening Balance / Current Outstanding</label>
+          <input type="number" class="form-control" id="account-opening-balance" placeholder="0.00" step="0.01">
           <div class="form-error">Please enter a valid amount.</div>
+        </div>
+        <div class="form-group" id="target-amount-group" style="display:none;">
+          <label class="form-label" for="account-target-amount">Total Loan / Principal Amount</label>
+          <input type="number" class="form-control" id="account-target-amount" placeholder="0.00" step="0.01" min="0">
         </div>
       </form>
     </div>
@@ -637,6 +656,10 @@
         <div class="form-group">
           <label class="form-label" for="cat-color">Label Color</label>
           <input type="color" class="form-control" id="cat-color" value="#3b82f6" style="height:40px; padding:4px;">
+        </div>
+        <div class="form-group" id="budget-group">
+          <label class="form-label" for="cat-budget">Monthly Budget Limit (Optional)</label>
+          <input type="number" class="form-control" id="cat-budget" placeholder="0.00" min="0" step="0.01">
         </div>
       </form>
     </div>

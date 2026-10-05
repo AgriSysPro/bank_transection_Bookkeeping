@@ -17,6 +17,7 @@ var BK = window.BK || {};
     this.categoriesCtrl = new BK.CategoriesController();
     this.transactionsCtrl = new BK.TransactionsController(this.accountsCtrl, this);
     this.statementsCtrl = new BK.StatementsController(this.accountsCtrl, this);
+    this.receiptsVaultCtrl = new BK.ReceiptsVaultController();
     this.automation = new BK.Automation(this);
     this.navigation = null;
     this.themeManager = null;
@@ -74,6 +75,7 @@ var BK = window.BK || {};
       case 'categories': this.categoriesCtrl.render(); break;
       case 'transactions': this.transactionsCtrl.render(); break;
       case 'statements': this.statementsCtrl.render(); break;
+      case 'receipts': this.receiptsVaultCtrl.render(); break;
     }
   };
 

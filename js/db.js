@@ -76,6 +76,7 @@ var BK = window.BK || {};
         accountNumber: account.accountNumber,
         accountType: account.accountType || 'bank',
         openingBalance: parseFloat(account.openingBalance) || 0,
+        targetAmount: parseFloat(account.targetAmount) || 0,
         createdAt: now,
         updatedAt: now
       });
@@ -86,6 +87,7 @@ var BK = window.BK || {};
         accountNumber: data.accountNumber,
         accountType: data.accountType || 'bank',
         openingBalance: parseFloat(data.openingBalance) || 0,
+        targetAmount: parseFloat(data.targetAmount) || 0,
         updatedAt: new Date().toISOString()
       });
     },
@@ -112,7 +114,8 @@ var BK = window.BK || {};
       return db.categories.add({
         name: category.name,
         type: category.type, // 'income' or 'expense'
-        color: category.color || '#3b82f6'
+        color: category.color || '#3b82f6',
+        monthlyBudget: parseFloat(category.monthlyBudget) || 0
       });
     },
     update: function (id, data) {

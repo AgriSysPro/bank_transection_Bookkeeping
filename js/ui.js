@@ -77,6 +77,7 @@ var BK = window.BK || {};
       payables: 'Payables (I Owe)',
       categories: 'Categories', 
       transactions: 'Transactions', 
+      receipts: 'Receipt Vault',
       statements: 'Statements', 
       settings: 'Settings & Backup' 
     };

@@ -101,8 +101,6 @@ var BK = window.BK || {};
     var self = this;
     var type = account.accountType || 'bank';
 
-    // A positive balance means opposite things per account type: money owed to
-    // the user for a receivable, but money the user owes for a payable.
     var balanceLabel = 'Current Balance';
     var balanceClass = balance >= 0 ? 'text-success' : 'text-danger';
     if (type === 'receivable') {
@@ -113,31 +111,52 @@ var BK = window.BK || {};
       balanceClass = balance >= 0 ? 'text-danger' : 'text-success';
     }
 
-    return U.createElement('div', { className: 'account-card' }, [
-      U.createElement('div', { className: 'account-card-header' }, [
-        U.createElement('div', {}, [
-          U.createElement('div', { className: 'account-card-name' }, [account.name]),
-          U.createElement('div', { className: 'account-card-number' }, [account.accountNumber || 'N/A'])
-        ]),
-        U.createElement('div', { className: 'action-btns' }, [
-          U.createElement('button', { className: 'btn btn-icon btn-ghost', title: 'Edit', onClick: function () { self.showForm(account); } }, [
-            U.createElement('i', { className: 'fas fa-pen' })
-          ]),
-          U.createElement('button', { className: 'btn btn-icon btn-ghost text-danger', title: 'Delete', onClick: function () { self.deleteAccount(account.id, account.name); } }, [
-            U.createElement('i', { className: 'fas fa-trash-alt' })
-          ])
-        ])
+    var content = [];
+    
+    content.push(U.createElement('div', { className: 'account-card-header' }, [
+      U.createElement('div', {}, [
+        U.createElement('div', { className: 'account-card-name' }, [account.name]),
+        U.createElement('div', { className: 'account-card-number' }, [account.accountNumber || 'N/A'])
       ]),
-      U.createElement('div', { className: 'account-card-label' }, [balanceLabel]),
-      U.createElement('div', { className: 'account-card-balance ' + balanceClass }, [U.formatCurrency(balance)]),
-      U.createElement('div', { className: 'account-card-footer' }, [
-        U.createElement('span', { className: 'text-muted', style: { fontSize: '12px' } }, ['Opening: ' + U.formatCurrency(account.openingBalance)]),
-        U.createElement('span', { className: 'account-card-txn-count' }, [
-          U.createElement('i', { className: 'fas fa-exchange-alt', style: { fontSize: '10px' } }),
-          (txnCount || 0) + ' transactions'
+      U.createElement('div', { className: 'action-btns' }, [
+        U.createElement('button', { className: 'btn btn-icon btn-ghost', title: 'Edit', onClick: function () { self.showForm(account); } }, [
+          U.createElement('i', { className: 'fas fa-pen' })
+        ]),
+        U.createElement('button', { className: 'btn btn-icon btn-ghost text-danger', title: 'Delete', onClick: function () { self.deleteAccount(account.id, account.name); } }, [
+          U.createElement('i', { className: 'fas fa-trash-alt' })
         ])
       ])
-    ]);
+    ]));
+
+    content.push(U.createElement('div', { className: 'account-card-label' }, [balanceLabel]));
+    content.push(U.createElement('div', { className: 'account-card-balance ' + balanceClass }, [U.formatCurrency(balance)]));
+
+    var target = account.targetAmount || 0;
+    if ((type === 'receivable' || type === 'payable') && target > 0) {
+      var currentVal = Math.abs(balance);
+      var settled = Math.max(0, target - currentVal);
+      var percent = Math.min(100, Math.round((settled / target) * 100));
+      
+      content.push(U.createElement('div', { style: { marginTop: '16px', marginBottom: '8px' } }, [
+        U.createElement('div', { style: { fontSize: '11px', display: 'flex', justifyContent: 'space-between', marginBottom: '4px' } }, [
+          U.createElement('span', { className: 'text-success', style: { fontWeight: '600' } }, [U.formatCurrency(settled) + ' Settled']),
+          U.createElement('span', { className: 'text-muted' }, ['of ' + U.formatCurrency(target)])
+        ]),
+        U.createElement('div', { style: { height: '6px', background: 'var(--bg-secondary)', borderRadius: '3px', overflow: 'hidden' } }, [
+          U.createElement('div', { style: { width: percent + '%', height: '100%', background: 'var(--success)', borderRadius: '3px' } })
+        ])
+      ]));
+    }
+
+    content.push(U.createElement('div', { className: 'account-card-footer', style: { marginTop: '16px' } }, [
+      U.createElement('span', { className: 'text-muted', style: { fontSize: '12px' } }, ['Opening: ' + U.formatCurrency(account.openingBalance)]),
+      U.createElement('span', { className: 'account-card-txn-count' }, [
+        U.createElement('i', { className: 'fas fa-exchange-alt', style: { fontSize: '10px' } }),
+        (txnCount || 0) + ' txns'
+      ])
+    ]));
+
+    return U.createElement('div', { className: 'account-card' }, content);
   };
 
   AccountsController.prototype.showForm = function (account, prefillType) {
@@ -147,12 +166,23 @@ var BK = window.BK || {};
     var numberInput = document.getElementById('account-number');
     var balanceInput = document.getElementById('account-opening-balance');
     var typeInput = document.getElementById('account-type');
+    var targetInput = document.getElementById('account-target-amount');
+    var targetGroup = document.getElementById('target-amount-group');
 
     if (title) title.textContent = account ? 'Edit Account' : 'New Account';
     if (nameInput) nameInput.value = account ? account.name : '';
     if (numberInput) numberInput.value = account ? account.accountNumber : '';
     if (balanceInput) balanceInput.value = account ? account.openingBalance : '';
-    if (typeInput) typeInput.value = account ? (account.accountType || 'bank') : (prefillType || 'bank');
+    if (targetInput) targetInput.value = account && account.targetAmount ? account.targetAmount : '';
+    
+    var initType = account ? (account.accountType || 'bank') : (prefillType || 'bank');
+    if (typeInput) {
+      typeInput.value = initType;
+      typeInput.onchange = function() {
+        if (targetGroup) targetGroup.style.display = (this.value === 'receivable' || this.value === 'payable') ? 'block' : 'none';
+      };
+    }
+    if (targetGroup) targetGroup.style.display = (initType === 'receivable' || initType === 'payable') ? 'block' : 'none';
 
     document.querySelectorAll('#account-form .form-group').forEach(function (g) { g.classList.remove('has-error'); });
     Modal.open('modal-account');
@@ -164,11 +194,13 @@ var BK = window.BK || {};
     var numberInput = document.getElementById('account-number');
     var balanceInput = document.getElementById('account-opening-balance');
     var typeInput = document.getElementById('account-type');
+    var targetInput = document.getElementById('account-target-amount');
 
     var name = nameInput.value.trim();
     var accountNumber = numberInput.value.trim();
     var openingBalance = balanceInput.value.trim();
     var accountType = typeInput ? typeInput.value : 'bank';
+    var targetAmount = targetInput ? targetInput.value.trim() : 0;
     var valid = true;
 
     if (!U.validateRequired(name)) {
@@ -187,7 +219,13 @@ var BK = window.BK || {};
 
     if (!valid) { Toast.warning('Please fix the highlighted fields.'); return; }
 
-    var data = { name: U.sanitize(name), accountNumber: U.sanitize(accountNumber), accountType: accountType, openingBalance: parseFloat(openingBalance) || 0 };
+    var data = { 
+      name: U.sanitize(name), 
+      accountNumber: U.sanitize(accountNumber), 
+      accountType: accountType, 
+      openingBalance: parseFloat(openingBalance) || 0,
+      targetAmount: parseFloat(targetAmount) || 0
+    };
 
     var action = self.editingId ? DB.update(self.editingId, data) : DB.add(data);
     return action.then(function () {
