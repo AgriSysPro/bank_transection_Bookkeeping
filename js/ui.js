@@ -174,14 +174,13 @@ var BK = window.BK || {};
           if (overlay) overlay.classList.remove('active');
         });
       });
-      document.querySelectorAll('.modal-overlay').forEach(function (overlay) {
-        overlay.addEventListener('click', function (e) {
-          if (e.target === overlay) overlay.classList.remove('active');
-        });
-      });
+      // Overlay click intentionally disabled to prevent accidental data loss.
+      // Users must use the close/cancel button to dismiss forms.
       document.addEventListener('keydown', function (e) {
         if (e.key === 'Escape') {
-          document.querySelectorAll('.modal-overlay.active').forEach(function (o) { o.classList.remove('active'); });
+          // Only auto-close confirm dialogs on Escape, not data-entry forms
+          var confirmModal = document.querySelector('#modal-confirm.active');
+          if (confirmModal) confirmModal.classList.remove('active');
         }
       });
     }

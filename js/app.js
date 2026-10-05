@@ -13,7 +13,7 @@ var BK = window.BK || {};
   var Modal = BK.ModalManager;
 
   function App() {
-    this.accountsCtrl = new BK.AccountsController();
+    this.accountsCtrl = new BK.AccountsController(this);
     this.categoriesCtrl = new BK.CategoriesController();
     this.transactionsCtrl = new BK.TransactionsController(this.accountsCtrl, this);
     this.statementsCtrl = new BK.StatementsController(this.accountsCtrl, this);

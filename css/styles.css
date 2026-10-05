@@ -1160,6 +1160,86 @@ tbody tr:nth-child(even):hover { background: var(--hover-bg); }
   color: var(--text-muted);
 }
 
+/* Person Profile Card Enhancements */
+.person-profile-header {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+.person-avatar {
+  width: 44px;
+  height: 44px;
+  border-radius: var(--radius-pill);
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-primary);
+  color: var(--text-primary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-display);
+  font-weight: 500;
+  font-size: 16px;
+  flex-shrink: 0;
+  box-shadow: var(--shadow-sm);
+}
+.person-avatar.receivable {
+  background: var(--aloe-10, #c1fbd4);
+  color: #0d4722;
+  border-color: rgba(13, 71, 34, 0.15);
+}
+.person-avatar.payable {
+  background: #fee2e2;
+  color: #991b1b;
+  border-color: rgba(153, 27, 27, 0.15);
+}
+.person-meta {
+  flex: 1;
+  min-width: 0;
+}
+.person-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 6px;
+}
+.person-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 9px;
+  border-radius: var(--radius-pill);
+  font-size: 11px;
+  background: var(--bg-secondary);
+  color: var(--text-secondary);
+  border: 1px solid var(--border-primary);
+  text-decoration: none;
+  transition: all var(--transition-fast);
+}
+.person-chip:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+.person-status-banner {
+  padding: 12px 14px;
+  border-radius: var(--radius-md);
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-primary);
+  margin-top: 12px;
+  margin-bottom: 12px;
+}
+.person-actions-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-top: 16px;
+}
+.person-actions-grid .btn {
+  padding: 8px 12px;
+  font-size: 12.5px;
+  justify-content: center;
+}
+
 /* ==========================================================================
    Modals & Dialogs
    ========================================================================== */

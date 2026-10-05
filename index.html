@@ -288,9 +288,14 @@
       <section class="page" id="page-transactions">
         <div class="page-header">
           <h2>Transactions</h2>
-          <button class="btn btn-primary" id="btn-add-transaction">
-            <i class="fas fa-plus"></i> New Transaction
-          </button>
+          <div class="d-flex gap-2">
+            <button class="btn btn-outline" id="btn-add-person-txn">
+              <i class="fas fa-user-friends"></i> Person Payment / Loan
+            </button>
+            <button class="btn btn-primary" id="btn-add-transaction">
+              <i class="fas fa-plus"></i> New Transaction
+            </button>
+          </div>
         </div>
 
         <div class="table-container">
@@ -605,16 +610,24 @@
           </select>
         </div>
         <div class="form-group">
-          <label class="form-label" for="account-name">Account Name *</label>
+          <label class="form-label" for="account-name" id="lbl-account-name">Account Name *</label>
           <input type="text" class="form-control" id="account-name" placeholder="e.g. Business Checking" required>
-          <div class="form-error">Account name is required.</div>
+          <div class="form-error">This field is required.</div>
         </div>
         <div class="form-group">
-          <label class="form-label" for="account-number">Account Number / Identifier</label>
+          <label class="form-label" for="account-number" id="lbl-account-number">Account Number / Identifier</label>
           <input type="text" class="form-control" id="account-number" placeholder="e.g. XXXX-1234">
         </div>
+        <div class="form-group" id="person-phone-group" style="display:none;">
+          <label class="form-label" for="account-phone">Phone Number</label>
+          <input type="tel" class="form-control" id="account-phone" placeholder="e.g. +92 300 1234567">
+        </div>
+        <div class="form-group" id="person-notes-group" style="display:none;">
+          <label class="form-label" for="account-notes">Notes / Relationship</label>
+          <textarea class="form-control" id="account-notes" rows="2" placeholder="e.g. Supplier, Friend, Contractor…"></textarea>
+        </div>
         <div class="form-group">
-          <label class="form-label" for="account-opening-balance">Opening Balance / Current Outstanding</label>
+          <label class="form-label" for="account-opening-balance" id="lbl-opening-balance">Opening Balance</label>
           <input type="number" class="form-control" id="account-opening-balance" placeholder="0.00" step="0.01">
           <div class="form-error">Please enter a valid amount.</div>
         </div>
@@ -628,6 +641,84 @@
       <button class="btn btn-ghost modal-close">Cancel</button>
       <button type="submit" class="btn btn-primary" form="account-form">
         <i class="fas fa-save"></i> Save Account
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- Person Transaction Modal (Inflow & Outflow) -->
+<div class="modal-overlay" id="modal-person-txn">
+  <div class="modal" style="max-width:540px;">
+    <div class="modal-header">
+      <div>
+        <h3 id="ptxn-modal-title">Record Person Transaction</h3>
+        <p id="ptxn-modal-subtitle" style="font-size:12px; color:var(--text-muted); margin-top:2px;">Track money given, received, or debt settled</p>
+      </div>
+      <button class="modal-close" title="Close Modal (Esc)"><i class="fas fa-times"></i></button>
+    </div>
+    <div class="modal-body">
+      <form id="person-txn-form" novalidate>
+        <input type="hidden" id="ptxn-person-id">
+
+        <!-- Person Dropdown (if opened without specific person) -->
+        <div class="form-group" id="ptxn-person-select-group" style="display:none;">
+          <label class="form-label" for="ptxn-person-select">Select Person (Receivable / Payable) *</label>
+          <select class="form-control" id="ptxn-person-select"></select>
+          <div class="form-error">Please select a person.</div>
+        </div>
+        
+        <!-- Person Profile Summary Banner -->
+        <div id="ptxn-person-banner" style="background:var(--bg-secondary); border:1px solid var(--border-primary); border-radius:var(--radius-md); padding:12px 16px; margin-bottom:16px; display:flex; justify-content:space-between; align-items:center;">
+          <div style="display:flex; align-items:center; gap:10px;">
+            <div id="ptxn-avatar" style="width:36px; height:36px; border-radius:50%; background:var(--primary); color:#fff; display:flex; align-items:center; justify-content:center; font-weight:600; font-size:13px;">P</div>
+            <div>
+              <div id="ptxn-person-name" style="font-weight:600; font-size:15px;">Person Name</div>
+              <div id="ptxn-person-type" style="font-size:11.5px; color:var(--text-muted);">Receivable</div>
+            </div>
+          </div>
+          <div style="text-align:right;">
+            <div style="font-size:11px; color:var(--text-muted); text-transform:uppercase;">Outstanding</div>
+            <div id="ptxn-person-balance" style="font-size:15px; font-weight:600;">Rs. 0.00</div>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="ptxn-action">Transaction Action / Flow *</label>
+          <select class="form-control" id="ptxn-action" required></select>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label" for="ptxn-amount">Amount *</label>
+            <input type="number" class="form-control" id="ptxn-amount" placeholder="0.00" step="0.01" min="0.01" required>
+            <div class="form-error">Please enter a valid positive amount.</div>
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="ptxn-date">Date *</label>
+            <input type="date" class="form-control" id="ptxn-date" required>
+            <div class="form-error">Date is required.</div>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="ptxn-bank-account">Linked Bank / Cash Account *</label>
+          <select class="form-control" id="ptxn-bank-account" required></select>
+          <div class="form-error">Please select a bank/cash account.</div>
+          <small class="text-muted" id="ptxn-bank-help" style="font-size:11.5px; display:block; margin-top:4px;">
+            The bank or cash wallet where money is deposited or deducted.
+          </small>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="ptxn-description">Notes / Description</label>
+          <input type="text" class="form-control" id="ptxn-description" placeholder="e.g. Cash payment received, Bank transfer, etc.">
+        </div>
+      </form>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost modal-close">Cancel</button>
+      <button type="submit" class="btn btn-primary" form="person-txn-form" id="btn-save-person-txn">
+        <i class="fas fa-check"></i> Save Transaction
       </button>
     </div>
   </div>

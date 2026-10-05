@@ -75,6 +75,8 @@ var BK = window.BK || {};
         name: account.name,
         accountNumber: account.accountNumber,
         accountType: account.accountType || 'bank',
+        phone: account.phone || '',
+        notes: account.notes || '',
         openingBalance: parseFloat(account.openingBalance) || 0,
         targetAmount: parseFloat(account.targetAmount) || 0,
         createdAt: now,
@@ -86,6 +88,8 @@ var BK = window.BK || {};
         name: data.name,
         accountNumber: data.accountNumber,
         accountType: data.accountType || 'bank',
+        phone: data.phone || '',
+        notes: data.notes || '',
         openingBalance: parseFloat(data.openingBalance) || 0,
         targetAmount: parseFloat(data.targetAmount) || 0,
         updatedAt: new Date().toISOString()

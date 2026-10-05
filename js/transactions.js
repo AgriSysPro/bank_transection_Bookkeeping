@@ -35,6 +35,15 @@ var BK = window.BK || {};
     var addBtn = document.getElementById('btn-add-transaction');
     if (addBtn) addBtn.addEventListener('click', function () { self.showForm(); });
 
+    var addPersonBtn = document.getElementById('btn-add-person-txn');
+    if (addPersonBtn) {
+      addPersonBtn.addEventListener('click', function () {
+        if (self.accountsCtrl && self.accountsCtrl.showPersonTxnModal) {
+          self.accountsCtrl.showPersonTxnModal(null);
+        }
+      });
+    }
+
     var fileInput = document.getElementById('txn-receipt-file');
     if (fileInput) fileInput.addEventListener('change', function (e) { self.handleReceiptUpload(e); });
 
@@ -593,19 +602,40 @@ var BK = window.BK || {};
         return TDB.update(self.editingId, data);
       });
     } else if (isTransfer) {
-      // Create two transactions. Neither leg is income or expense, so neither
+      // Create two linked transactions. Neither leg is income or expense, so neither
       // carries a category — otherwise transfers show up in the spending chart.
-      var debitTxn = Object.assign({}, data, { type: 'debit', categoryId: null, description: 'Transfer to target account: ' + description });
-      promise = TDB.add(debitTxn).then(function (id1) {
-        var creditTxn = Object.assign({}, data, {
-          type: 'credit',
-          accountId: toAccountId,
-          categoryId: null,
-          relatedId: id1,
-          description: 'Transfer from source account: ' + description
-        });
-        return TDB.add(creditTxn).then(function (id2) {
-          return TDB.update(id1, Object.assign({}, debitTxn, { relatedId: id2 }));
+      promise = Promise.all([
+        ADB.getById(accountId),
+        ADB.getById(toAccountId)
+      ]).then(function (accs) {
+        var fromAcc = accs[0];
+        var toAcc = accs[1];
+
+        var fromType = 'debit';
+        var toType = 'credit';
+
+        // If paying a payable person from bank: both get debit (debt reduced, bank reduced)
+        if (toAcc && toAcc.accountType === 'payable') {
+          toType = 'debit';
+        }
+        // If borrowing from payable person into bank: both get credit (debt increased, bank increased)
+        if (fromAcc && fromAcc.accountType === 'payable') {
+          fromType = 'credit';
+          toType = 'credit';
+        }
+
+        var leg1 = Object.assign({}, data, { type: fromType, categoryId: null, description: 'Transfer to target account: ' + description });
+        return TDB.add(leg1).then(function (id1) {
+          var leg2 = Object.assign({}, data, {
+            type: toType,
+            accountId: toAccountId,
+            categoryId: null,
+            relatedId: id1,
+            description: 'Transfer from source account: ' + description
+          });
+          return TDB.add(leg2).then(function (id2) {
+            return TDB.update(id1, Object.assign({}, leg1, { relatedId: id2 }));
+          });
         });
       });
     } else {
