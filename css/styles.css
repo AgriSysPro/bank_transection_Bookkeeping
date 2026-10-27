@@ -1240,6 +1240,39 @@ tbody tr:nth-child(even):hover { background: var(--hover-bg); }
   justify-content: center;
 }
 
+.txn-person-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11.5px;
+  color: var(--text-secondary);
+  background: var(--bg-secondary);
+  padding: 2px 8px;
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--border-primary);
+  width: fit-content;
+}
+
+.cat-icon-btn {
+  width: 32px !important;
+  height: 32px !important;
+  padding: 0 !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  border-radius: var(--radius-sm) !important;
+  border: 1px solid var(--border-primary) !important;
+  background: var(--bg-card) !important;
+  color: var(--text-secondary) !important;
+  transition: all var(--transition-fast) !important;
+}
+.cat-icon-btn:hover {
+  background: var(--bg-hover) !important;
+  color: var(--primary) !important;
+  border-color: var(--primary) !important;
+  transform: translateY(-1px);
+}
+
 /* ==========================================================================
    Modals & Dialogs
    ========================================================================== */

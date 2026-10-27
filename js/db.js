@@ -118,18 +118,96 @@ var BK = window.BK || {};
       return db.categories.add({
         name: category.name,
         type: category.type, // 'income' or 'expense'
+        group: category.group || (category.type === 'income' ? 'Core Business Revenue' : 'Operating & Facilities'),
+        icon: category.icon || (category.type === 'income' ? 'fas fa-arrow-down' : 'fas fa-tag'),
         color: category.color || '#3b82f6',
         monthlyBudget: parseFloat(category.monthlyBudget) || 0
       });
     },
     update: function (id, data) {
-      return db.categories.update(id, data);
+      return db.categories.update(id, {
+        name: data.name,
+        type: data.type,
+        group: data.group || 'Operating & Facilities',
+        icon: data.icon || 'fas fa-tag',
+        color: data.color || '#3b82f6',
+        monthlyBudget: parseFloat(data.monthlyBudget) || 0
+      });
     },
     delete: function (id) {
       // Unset categoryId for linked transactions before deleting
       return db.transaction('rw', db.categories, db.transactions, function () {
         db.transactions.where('categoryId').equals(id).modify({ categoryId: null });
         db.categories.delete(id);
+      });
+    },
+    getStandardCategories: function () {
+      return [
+        // Operating & Facilities
+        { name: 'Office / Shop Rent', type: 'expense', group: 'Operating & Facilities', icon: 'fas fa-building', color: '#6366f1', monthlyBudget: 50000 },
+        { name: 'Electricity & Power', type: 'expense', group: 'Operating & Facilities', icon: 'fas fa-bolt', color: '#f59e0b', monthlyBudget: 25000 },
+        { name: 'Internet & Telecommunications', type: 'expense', group: 'Operating & Facilities', icon: 'fas fa-wifi', color: '#3b82f6', monthlyBudget: 8000 },
+        { name: 'Water & Utilities', type: 'expense', group: 'Operating & Facilities', icon: 'fas fa-tint', color: '#06b6d4', monthlyBudget: 5000 },
+        { name: 'Repairs & Maintenance', type: 'expense', group: 'Operating & Facilities', icon: 'fas fa-tools', color: '#8b5cf6', monthlyBudget: 15000 },
+        
+        // Payroll & Labor
+        { name: 'Staff Salaries & Wages', type: 'expense', group: 'Payroll & Labor', icon: 'fas fa-users', color: '#10b981', monthlyBudget: 150000 },
+        { name: 'Contractor & Freelancer Fees', type: 'expense', group: 'Payroll & Labor', icon: 'fas fa-user-tie', color: '#14b8a6', monthlyBudget: 40000 },
+        { name: 'Bonuses & Staff Welfare', type: 'expense', group: 'Payroll & Labor', icon: 'fas fa-award', color: '#eab308', monthlyBudget: 10000 },
+        
+        // Inventory & Supplies
+        { name: 'Raw Materials & Inventory', type: 'expense', group: 'Inventory & Supplies', icon: 'fas fa-boxes', color: '#ec4899', monthlyBudget: 80000 },
+        { name: 'Packaging & Cartons', type: 'expense', group: 'Inventory & Supplies', icon: 'fas fa-box-open', color: '#d946ef', monthlyBudget: 15000 },
+        { name: 'Shipping & Delivery', type: 'expense', group: 'Inventory & Supplies', icon: 'fas fa-truck', color: '#64748b', monthlyBudget: 20000 },
+        { name: 'Office Supplies & Stationery', type: 'expense', group: 'Inventory & Supplies', icon: 'fas fa-paperclip', color: '#94a3b8', monthlyBudget: 6000 },
+
+        // Sales & Marketing
+        { name: 'Online Ads & Promotions', type: 'expense', group: 'Sales & Marketing', icon: 'fas fa-bullhorn', color: '#f97316', monthlyBudget: 30000 },
+        { name: 'Print & Branding Materials', type: 'expense', group: 'Sales & Marketing', icon: 'fas fa-palette', color: '#fb923c', monthlyBudget: 10000 },
+
+        // Technology & Tools
+        { name: 'Software & Cloud Subscriptions', type: 'expense', group: 'Technology & Tools', icon: 'fas fa-laptop-code', color: '#3b82f6', monthlyBudget: 12000 },
+        { name: 'Hardware & IT Equipment', type: 'expense', group: 'Technology & Tools', icon: 'fas fa-desktop', color: '#0284c7', monthlyBudget: 20000 },
+
+        // Travel & Transit
+        { name: 'Vehicle Fuel & CNG', type: 'expense', group: 'Travel & Logistics', icon: 'fas fa-gas-pump', color: '#eab308', monthlyBudget: 20000 },
+        { name: 'Vehicle Service & Maintenance', type: 'expense', group: 'Travel & Logistics', icon: 'fas fa-wrench', color: '#ca8a04', monthlyBudget: 10000 },
+        { name: 'Travel & Lodging', type: 'expense', group: 'Travel & Logistics', icon: 'fas fa-plane', color: '#0ea5e9', monthlyBudget: 25000 },
+
+        // Food & Hospitality
+        { name: 'Office Tea & Refreshments', type: 'expense', group: 'Food & Refreshments', icon: 'fas fa-coffee', color: '#a16207', monthlyBudget: 8000 },
+        { name: 'Meals & Client Entertainment', type: 'expense', group: 'Food & Refreshments', icon: 'fas fa-utensils', color: '#84cc16', monthlyBudget: 15000 },
+        { name: 'Groceries & Kitchen Supplies', type: 'expense', group: 'Food & Refreshments', icon: 'fas fa-shopping-basket', color: '#22c55e', monthlyBudget: 40000 },
+
+        // Legal & Financial
+        { name: 'Bank Charges & Fees', type: 'expense', group: 'Financial & Taxes', icon: 'fas fa-university', color: '#64748b', monthlyBudget: 5000 },
+        { name: 'Taxes & Regulatory Duties', type: 'expense', group: 'Financial & Taxes', icon: 'fas fa-landmark', color: '#dc2626', monthlyBudget: 20000 },
+        { name: 'Legal & Professional Services', type: 'expense', group: 'Financial & Taxes', icon: 'fas fa-balance-scale', color: '#475569', monthlyBudget: 15000 },
+
+        // Personal & Family
+        { name: 'Family Allowance & Home', type: 'expense', group: 'Personal & Family', icon: 'fas fa-home', color: '#a855f7', monthlyBudget: 50000 },
+        { name: 'Healthcare & Medical', type: 'expense', group: 'Personal & Family', icon: 'fas fa-medkit', color: '#ef4444', monthlyBudget: 15000 },
+        { name: 'Education & Tuition', type: 'expense', group: 'Personal & Family', icon: 'fas fa-graduation-cap', color: '#3b82f6', monthlyBudget: 30000 },
+
+        // Income Categories
+        { name: 'Product & Goods Sales', type: 'income', group: 'Core Business Revenue', icon: 'fas fa-shopping-cart', color: '#10b981', monthlyBudget: 0 },
+        { name: 'Service & Consulting Fees', type: 'income', group: 'Core Business Revenue', icon: 'fas fa-handshake', color: '#059669', monthlyBudget: 0 },
+        { name: 'Freelance & Contract Work', type: 'income', group: 'Core Business Revenue', icon: 'fas fa-briefcase', color: '#047857', monthlyBudget: 0 },
+        { name: 'Rental Income', type: 'income', group: 'Investments & Other', icon: 'fas fa-key', color: '#0284c7', monthlyBudget: 0 },
+        { name: 'Investment & Dividends', type: 'income', group: 'Investments & Other', icon: 'fas fa-chart-line', color: '#0d9488', monthlyBudget: 0 },
+        { name: 'Other Miscellaneous Inflow', type: 'income', group: 'Investments & Other', icon: 'fas fa-coins', color: '#16a34a', monthlyBudget: 0 }
+      ];
+    },
+    seedStandardCategories: function () {
+      var std = this.getStandardCategories();
+      return db.categories.toArray().then(function (existing) {
+        var existingNames = {};
+        existing.forEach(function (c) { existingNames[c.name.toLowerCase().trim()] = true; });
+        var toAdd = std.filter(function (s) { return !existingNames[s.name.toLowerCase().trim()]; });
+        if (toAdd.length === 0) return Promise.resolve(0);
+        return db.categories.bulkAdd(toAdd).then(function () {
+          return toAdd.length;
+        });
       });
     }
   };
@@ -182,7 +260,11 @@ var BK = window.BK || {};
         categoryId: transaction.categoryId || null,
         type: transaction.type,
         amount: parseFloat(transaction.amount),
-        description: transaction.description,
+        reason: transaction.reason || '',
+        personName: transaction.personName || '',
+        personPhone: transaction.personPhone || '',
+        personRole: transaction.personRole || '',
+        description: transaction.description || '',
         isTransfer: !!transaction.isTransfer,
         relatedId: transaction.relatedId || null,
         isVerified: !!transaction.isVerified,
@@ -200,7 +282,11 @@ var BK = window.BK || {};
         categoryId: data.categoryId || null,
         type: data.type,
         amount: parseFloat(data.amount),
-        description: data.description,
+        reason: data.reason || '',
+        personName: data.personName || '',
+        personPhone: data.personPhone || '',
+        personRole: data.personRole || '',
+        description: data.description || '',
         isTransfer: !!data.isTransfer,
         relatedId: data.relatedId || null,
         isVerified: !!data.isVerified,

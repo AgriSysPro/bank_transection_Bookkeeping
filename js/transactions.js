@@ -152,14 +152,20 @@ var BK = window.BK || {};
 
   TransactionsController.prototype.renderTable = function () {
     var self = this;
-    return Promise.all([TDB.getAll(), ADB.getAll()]).then(function (results) {
+    return Promise.all([TDB.getAll(), ADB.getAll(), BK.CategoriesDB.getAll()]).then(function (results) {
       var transactions = results[0];
       var accounts = results[1];
+      var categories = results[2];
       var accountMap = {};
       var accountTypeMap = {};
       accounts.forEach(function (a) {
         accountMap[a.id] = a.name;
         accountTypeMap[a.id] = a.accountType || 'bank';
+      });
+
+      var catMap = {};
+      categories.forEach(function (c) {
+        catMap[c.id] = c;
       });
 
       var filtered = transactions;
@@ -176,10 +182,17 @@ var BK = window.BK || {};
         filtered = filtered.filter(function (t) { return t.type === self.filters.type; });
       }
       if (self.filters.search) {
+        var q = self.filters.search.toLowerCase();
         filtered = filtered.filter(function (t) {
           var desc = (t.description || '').toLowerCase();
+          var reason = (t.reason || '').toLowerCase();
+          var pName = (t.personName || '').toLowerCase();
+          var pPhone = (t.personPhone || '').toLowerCase();
+          var pRole = (t.personRole || '').toLowerCase();
           var accName = (accountMap[t.accountId] || '').toLowerCase();
-          return desc.includes(self.filters.search) || accName.includes(self.filters.search);
+          var cat = catMap[t.categoryId];
+          var catName = cat ? cat.name.toLowerCase() : '';
+          return desc.includes(q) || reason.includes(q) || pName.includes(q) || pPhone.includes(q) || pRole.includes(q) || accName.includes(q) || catName.includes(q);
         });
       }
 
@@ -223,11 +236,10 @@ var BK = window.BK || {};
       }
 
       filtered.forEach(function (txn) {
-        tbody.appendChild(self.renderRow(txn, accountMap[txn.accountId] || 'Unknown', accounts));
+        tbody.appendChild(self.renderRow(txn, accountMap[txn.accountId] || 'Unknown', catMap[txn.categoryId]));
       });
 
-      // Transaction totals footer. Transfers move money between the user's own
-      // accounts, so counting them would show income and expense that is not real.
+      // Transaction totals footer
       var totalCredits = 0, totalDebits = 0;
       filtered.forEach(function (t) {
         if (t.isTransfer) return;
@@ -266,7 +278,7 @@ var BK = window.BK || {};
     });
   };
 
-  TransactionsController.prototype.renderRow = function (txn, accountName, allAccounts) {
+  TransactionsController.prototype.renderRow = function (txn, accountName, category) {
     var self = this;
     var isCredit = txn.type === 'credit';
     var isVerified = !!txn.isVerified;
@@ -281,6 +293,57 @@ var BK = window.BK || {};
       ]);
     } else {
       receiptCell = U.createElement('td', { className: 'text-muted' }, ['\u2014']);
+    }
+
+    var detailsNodes = [];
+    var primaryTitle = txn.reason || txn.description || 'Transaction';
+    detailsNodes.push(U.createElement('div', { 
+      style: { fontWeight: '600', color: 'var(--text-primary)', fontSize: '13.5px' } 
+    }, [primaryTitle]));
+
+    if (txn.personName) {
+      var pPrefix = isCredit ? 'From: ' : 'To: ';
+      detailsNodes.push(U.createElement('div', {
+        className: 'txn-person-chip',
+        style: {
+          fontSize: '11.5px',
+          color: 'var(--text-secondary)',
+          display: 'inline-flex',
+          alignItems: 'center',
+          gap: '5px',
+          marginTop: '2px'
+        }
+      }, [
+        U.createElement('i', { className: 'fas fa-user-circle', style: { color: 'var(--primary)', opacity: '0.85' } }),
+        U.createElement('span', { style: { fontWeight: '500' } }, [pPrefix + txn.personName]),
+        txn.personPhone ? U.createElement('span', { className: 'text-muted' }, ['(' + txn.personPhone + ')']) : null,
+        txn.personRole ? U.createElement('span', { className: 'badge', style: { fontSize: '9.5px', padding: '1px 6px' } }, [txn.personRole]) : null
+      ].filter(Boolean)));
+    }
+
+    if (txn.reason && txn.description && txn.description !== txn.reason) {
+      detailsNodes.push(U.createElement('div', { 
+        style: { fontSize: '12px', color: 'var(--text-muted)', marginTop: '2px' } 
+      }, [txn.description]));
+    }
+
+    if (category) {
+      detailsNodes.push(U.createElement('div', { style: { marginTop: '4px' } }, [
+        U.createElement('span', { 
+          className: 'badge', 
+          style: { 
+            fontSize: '10.5px', 
+            backgroundColor: 'var(--bg-secondary)', 
+            border: '1px solid var(--border-primary)',
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '5px'
+          } 
+        }, [
+          U.createElement('i', { className: category.icon || 'fas fa-tag', style: { color: category.color || 'var(--primary)', fontSize: '9.5px' } }),
+          category.name
+        ])
+      ]));
     }
 
     return U.createElement('tr', {
@@ -306,13 +369,7 @@ var BK = window.BK || {};
         (isCredit ? '+' : '\u2212') + U.formatCurrency(txn.amount)
       ]),
       U.createElement('td', {}, [
-        U.createElement('div', { style: { display: 'flex', flexDirection: 'column', gap: '4px' } }, [
-          U.createElement('span', {}, [txn.description || '\u2014']),
-          txn.categoryId ? U.createElement('span', { className: 'badge', style: { fontSize: '10px', backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border-color)', width: 'fit-content' } }, [
-            U.createElement('i', { className: 'fas fa-tag', style: { fontSize: '9px', marginRight: '4px' } }),
-            'Tagged'
-          ]) : null
-        ].filter(Boolean))
+        U.createElement('div', { style: { display: 'flex', flexDirection: 'column', gap: '2px' } }, detailsNodes)
       ]),
       receiptCell,
       U.createElement('td', { onClick: function(e) { e.stopPropagation(); } }, [
@@ -489,6 +546,13 @@ var BK = window.BK || {};
     var accountSelect = document.getElementById('txn-account');
     var typeSelect = document.getElementById('txn-type');
     var amountInput = document.getElementById('txn-amount');
+    var reasonInput = document.getElementById('txn-reason');
+    var personNameInput = document.getElementById('txn-person-name');
+    var personPhoneInput = document.getElementById('txn-person-phone');
+    var personRoleSelect = document.getElementById('txn-person-role');
+    var lblPersonDetails = document.getElementById('lbl-person-details');
+    var lblPersonName = document.getElementById('lbl-person-name');
+    var personDatalist = document.getElementById('txn-person-list');
     var descInput = document.getElementById('txn-description');
     var categorySelect = document.getElementById('txn-category');
     var isTransferCheck = document.getElementById('txn-is-transfer');
@@ -496,6 +560,56 @@ var BK = window.BK || {};
     var transferExtra = document.getElementById('transfer-extra-fields');
 
     if (title) title.textContent = txn ? 'Edit Transaction' : 'New Transaction';
+
+    function updatePersonLabels(t) {
+      if (lblPersonDetails) {
+        lblPersonDetails.innerHTML = t === 'credit'
+          ? '<i class="fas fa-user-circle" style="color:var(--primary); margin-right:5px;"></i> Paying Person / Sender Details (Received From)'
+          : '<i class="fas fa-user-circle" style="color:var(--primary); margin-right:5px;"></i> Receiving Person / Payee Details (Paid To)';
+      }
+      if (lblPersonName) {
+        lblPersonName.textContent = t === 'credit' ? 'Sender / Client Name' : 'Recipient / Beneficiary Name';
+      }
+    }
+
+    if (typeSelect) {
+      typeSelect.onchange = function() { updatePersonLabels(this.value); };
+      updatePersonLabels(txn ? txn.type : 'debit');
+    }
+
+    // Populate Person suggestions datalist
+    if (personDatalist) {
+      U.clearChildren(personDatalist);
+      var knownPeople = {};
+      ADB.getAll().then(function (accs) {
+        accs.forEach(function (a) {
+          if (a.accountType === 'receivable' || a.accountType === 'payable') {
+            knownPeople[a.name] = { phone: a.phone || '', role: a.accountType === 'receivable' ? 'Customer / Client' : 'Vendor / Supplier' };
+          }
+        });
+        return TDB.getAll();
+      }).then(function (txns) {
+        txns.forEach(function (t) {
+          if (t.personName && !knownPeople[t.personName]) {
+            knownPeople[t.personName] = { phone: t.personPhone || '', role: t.personRole || '' };
+          }
+        });
+
+        Object.keys(knownPeople).sort().forEach(function (pName) {
+          personDatalist.appendChild(U.createElement('option', { value: pName }));
+        });
+
+        if (personNameInput) {
+          personNameInput.oninput = function () {
+            var val = this.value.trim();
+            if (knownPeople[val]) {
+              if (personPhoneInput && !personPhoneInput.value) personPhoneInput.value = knownPeople[val].phone || '';
+              if (personRoleSelect && !personRoleSelect.value && knownPeople[val].role) personRoleSelect.value = knownPeople[val].role;
+            }
+          };
+        }
+      });
+    }
 
     // Categories rendering
     this.categoriesCtrl.renderOptions(categorySelect, txn ? txn.categoryId : null);
@@ -506,6 +620,10 @@ var BK = window.BK || {};
       if (dateInput) dateInput.value = txn ? txn.date : U.getTodayStr();
       if (typeSelect) typeSelect.value = txn ? txn.type : 'debit';
       if (amountInput) amountInput.value = txn ? txn.amount : '';
+      if (reasonInput) reasonInput.value = txn ? (txn.reason || '') : '';
+      if (personNameInput) personNameInput.value = txn ? (txn.personName || '') : '';
+      if (personPhoneInput) personPhoneInput.value = txn ? (txn.personPhone || '') : '';
+      if (personRoleSelect) personRoleSelect.value = txn ? (txn.personRole || '') : '';
       if (descInput) descInput.value = txn ? txn.description : '';
       
       if (isTransferCheck) {
@@ -530,6 +648,10 @@ var BK = window.BK || {};
     var accountSelect = document.getElementById('txn-account');
     var typeSelect = document.getElementById('txn-type');
     var amountInput = document.getElementById('txn-amount');
+    var reasonInput = document.getElementById('txn-reason');
+    var personNameInput = document.getElementById('txn-person-name');
+    var personPhoneInput = document.getElementById('txn-person-phone');
+    var personRoleSelect = document.getElementById('txn-person-role');
     var descInput = document.getElementById('txn-description');
     var categorySelect = document.getElementById('txn-category');
     var isTransferCheck = document.getElementById('txn-is-transfer');
@@ -539,6 +661,10 @@ var BK = window.BK || {};
     var accountId = parseInt(accountSelect.value);
     var type = typeSelect.value;
     var amount = amountInput.value.trim();
+    var reason = reasonInput ? reasonInput.value.trim() : '';
+    var personName = personNameInput ? personNameInput.value.trim() : '';
+    var personPhone = personPhoneInput ? personPhoneInput.value.trim() : '';
+    var personRole = personRoleSelect ? personRoleSelect.value : '';
     var description = descInput.value.trim();
     var categoryId = parseInt(categorySelect.value) || null;
     var isTransfer = isTransferCheck ? isTransferCheck.checked : false;
@@ -554,6 +680,13 @@ var BK = window.BK || {};
     if (!U.validateAmount(amount)) { amountInput.closest('.form-group').classList.add('has-error'); valid = false; }
     else { amountInput.closest('.form-group').classList.remove('has-error'); }
 
+    if (!reason) {
+      if (reasonInput) reasonInput.closest('.form-group').classList.add('has-error');
+      valid = false;
+    } else if (reasonInput) {
+      reasonInput.closest('.form-group').classList.remove('has-error');
+    }
+
     if (isTransfer && (!toAccountId || toAccountId === accountId)) {
       toAccountSelect.closest('.form-group').classList.add('has-error');
       Toast.warning('Select a different destination account for transfer.');
@@ -567,7 +700,15 @@ var BK = window.BK || {};
     var pAmount = parseFloat(amount);
     var data = {
       date: date, accountId: accountId, type: type,
-      amount: pAmount, description: U.sanitize(description),
+      amount: pAmount,
+      reason: U.sanitize(reason),
+      personName: U.sanitize(personName),
+      personPhone: U.sanitize(personPhone),
+      personRole: U.sanitize(personRole),
+      description: U.sanitize(description),
+      categoryId: categoryId, isTransfer: isTransfer,
+      receiptData: self.receiptData, receiptType: self.receiptType, receiptName: self.receiptName
+    };
       categoryId: categoryId, isTransfer: isTransfer,
       receiptData: self.receiptData, receiptType: self.receiptType, receiptName: self.receiptName
     };

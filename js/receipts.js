@@ -103,16 +103,30 @@ var BK = window.BK || {};
       }
 
       renderRow('Date', U.formatDate(txn.date), startY);
-      renderRow('Type', txn.type.toUpperCase(), startY + rowHeight);
+      renderRow('Type', txn.type.toUpperCase() + (txn.type === 'credit' ? ' (INFLOW)' : ' (OUTFLOW)'), startY + rowHeight);
       
       doc.setFontSize(14);
       renderRow('Amount', U.formatCurrency(txn.amount), startY + rowHeight * 2, true);
       doc.setFontSize(10);
+
+      var curY = startY + rowHeight * 3;
+      if (txn.reason) {
+        renderRow('Reason / Purpose', txn.reason, curY, true);
+        curY += rowHeight;
+      }
+
+      if (txn.personName) {
+        var personLabel = txn.type === 'credit' ? 'Received From (Payer)' : 'Paid To (Beneficiary)';
+        var personVal = txn.personName + (txn.personPhone ? ' | Tel: ' + txn.personPhone : '') + (txn.personRole ? ' [' + txn.personRole + ']' : '');
+        renderRow(personLabel, personVal, curY);
+        curY += rowHeight;
+      }
       
-      renderRow('Description', txn.description || 'N/A', startY + rowHeight * 3);
+      renderRow('Memo / Reference', txn.description || 'N/A', curY);
+      curY += rowHeight;
       
       // ─── Total Box ───
-      var boxY = startY + rowHeight * 5;
+      var boxY = Math.max(curY + 15, 340);
       doc.setFillColor(250, 251, 255);
       doc.rect(margin, boxY, pageWidth - margin * 2, 80, 'F');
       doc.setDrawColor(accentColor[0], accentColor[1], accentColor[2]);

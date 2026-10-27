@@ -358,17 +358,26 @@
       <!-- ══════ Categories Page ══════ -->
       <section class="page" id="page-categories">
         <div class="page-header">
-          <h2>Categories</h2>
-          <button class="btn btn-primary" id="btn-add-category">
-            <i class="fas fa-plus"></i> New Category
-          </button>
+          <div>
+            <h2>Categories</h2>
+            <p style="font-size:13px; color:var(--text-muted); margin-top:2px;">Organize transactions with defined classifications, icons & spending limits</p>
+          </div>
+          <div class="d-flex gap-2">
+            <button class="btn btn-outline" id="btn-seed-categories" title="Populate standard business & personal accounting categories">
+              <i class="fas fa-layer-group"></i> Load Standard Categories
+            </button>
+            <button class="btn btn-primary" id="btn-add-category">
+              <i class="fas fa-plus"></i> New Category
+            </button>
+          </div>
         </div>
         <div class="card">
           <div class="table-container">
             <table>
               <thead>
                 <tr>
-                  <th>Name</th>
+                  <th>Category Name</th>
+                  <th>Classification / Group</th>
                   <th>Type</th>
                   <th>Color</th>
                   <th style="width:200px;">Monthly Budget</th>
@@ -726,7 +735,7 @@
 
 <!-- Category Modal -->
 <div class="modal-overlay" id="modal-category">
-  <div class="modal" style="max-width:400px;">
+  <div class="modal" style="max-width:480px;">
     <div class="modal-header">
       <h3 id="category-modal-title">New Category</h3>
       <button class="modal-close"><i class="fas fa-times"></i></button>
@@ -735,18 +744,64 @@
       <form id="category-form" novalidate>
         <div class="form-group">
           <label class="form-label" for="cat-name">Category Name *</label>
-          <input type="text" class="form-control" id="cat-name" placeholder="e.g. Salary, Rent, Food" required>
+          <input type="text" class="form-control" id="cat-name" placeholder="e.g. Office Rent, Electricity, Staff Salaries" required>
         </div>
-        <div class="form-group">
-          <label class="form-label" for="cat-type">Type</label>
-          <select class="form-control" id="cat-type">
-            <option value="expense">Expense</option>
-            <option value="income">Income</option>
-          </select>
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label" for="cat-type">Type *</label>
+            <select class="form-control" id="cat-type">
+              <option value="expense">Expense (Outflow)</option>
+              <option value="income">Income (Inflow)</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="cat-group">Classification / Group *</label>
+            <input type="text" class="form-control" id="cat-group" list="cat-group-list" placeholder="e.g. Operating & Facilities" required>
+            <datalist id="cat-group-list">
+              <option value="Operating & Facilities">
+              <option value="Payroll & Labor">
+              <option value="Inventory & Supplies">
+              <option value="Sales & Marketing">
+              <option value="Technology & Tools">
+              <option value="Travel & Logistics">
+              <option value="Food & Refreshments">
+              <option value="Financial & Taxes">
+              <option value="Personal & Family">
+              <option value="Core Business Revenue">
+              <option value="Investments & Other">
+            </datalist>
+          </div>
         </div>
-        <div class="form-group">
-          <label class="form-label" for="cat-color">Label Color</label>
-          <input type="color" class="form-control" id="cat-color" value="#3b82f6" style="height:40px; padding:4px;">
+        <div class="form-row">
+          <div class="form-group" style="flex:1;">
+            <label class="form-label" for="cat-icon">Icon Class (FontAwesome)</label>
+            <input type="text" class="form-control" id="cat-icon" placeholder="fas fa-tag" value="fas fa-tag">
+          </div>
+          <div class="form-group" style="flex:1;">
+            <label class="form-label" for="cat-color">Badge Color</label>
+            <input type="color" class="form-control" id="cat-color" value="#3b82f6" style="height:40px; padding:4px;">
+          </div>
+        </div>
+        <!-- Quick Icon Selector Pills -->
+        <div class="form-group mb-2">
+          <label class="form-label" style="font-size:11px; margin-bottom:4px;">Quick Pick Icon:</label>
+          <div id="cat-quick-icons" style="display:flex; flex-wrap:wrap; gap:6px;">
+            <button type="button" class="btn btn-ghost btn-sm cat-icon-btn" data-icon="fas fa-building" title="Building"><i class="fas fa-building"></i></button>
+            <button type="button" class="btn btn-ghost btn-sm cat-icon-btn" data-icon="fas fa-bolt" title="Electricity"><i class="fas fa-bolt"></i></button>
+            <button type="button" class="btn btn-ghost btn-sm cat-icon-btn" data-icon="fas fa-wifi" title="Internet"><i class="fas fa-wifi"></i></button>
+            <button type="button" class="btn btn-ghost btn-sm cat-icon-btn" data-icon="fas fa-users" title="Staff"><i class="fas fa-users"></i></button>
+            <button type="button" class="btn btn-ghost btn-sm cat-icon-btn" data-icon="fas fa-boxes" title="Inventory"><i class="fas fa-boxes"></i></button>
+            <button type="button" class="btn btn-ghost btn-sm cat-icon-btn" data-icon="fas fa-shopping-cart" title="Sales"><i class="fas fa-shopping-cart"></i></button>
+            <button type="button" class="btn btn-ghost btn-sm cat-icon-btn" data-icon="fas fa-truck" title="Transport"><i class="fas fa-truck"></i></button>
+            <button type="button" class="btn btn-ghost btn-sm cat-icon-btn" data-icon="fas fa-utensils" title="Food"><i class="fas fa-utensils"></i></button>
+            <button type="button" class="btn btn-ghost btn-sm cat-icon-btn" data-icon="fas fa-bullhorn" title="Marketing"><i class="fas fa-bullhorn"></i></button>
+            <button type="button" class="btn btn-ghost btn-sm cat-icon-btn" data-icon="fas fa-laptop-code" title="Tech"><i class="fas fa-laptop-code"></i></button>
+            <button type="button" class="btn btn-ghost btn-sm cat-icon-btn" data-icon="fas fa-gas-pump" title="Fuel"><i class="fas fa-gas-pump"></i></button>
+            <button type="button" class="btn btn-ghost btn-sm cat-icon-btn" data-icon="fas fa-university" title="Bank"><i class="fas fa-university"></i></button>
+            <button type="button" class="btn btn-ghost btn-sm cat-icon-btn" data-icon="fas fa-home" title="Personal"><i class="fas fa-home"></i></button>
+            <button type="button" class="btn btn-ghost btn-sm cat-icon-btn" data-icon="fas fa-handshake" title="Deals"><i class="fas fa-handshake"></i></button>
+            <button type="button" class="btn btn-ghost btn-sm cat-icon-btn" data-icon="fas fa-tag" title="Tag"><i class="fas fa-tag"></i></button>
+          </div>
         </div>
         <div class="form-group" id="budget-group">
           <label class="form-label" for="cat-budget">Monthly Budget Limit (Optional)</label>
@@ -788,9 +843,12 @@
 
 <!-- Transaction Modal -->
 <div class="modal-overlay" id="modal-transaction">
-  <div class="modal" style="max-width:620px;">
+  <div class="modal" style="max-width:640px;">
     <div class="modal-header">
-      <h3 id="txn-modal-title">New Transaction</h3>
+      <div>
+        <h3 id="txn-modal-title">New Transaction</h3>
+        <p style="font-size:12px; color:var(--text-muted); margin-top:2px;">Record income, expense, or person payment</p>
+      </div>
       <button class="modal-close"><i class="fas fa-times"></i></button>
     </div>
     <div class="modal-body">
@@ -802,17 +860,18 @@
             <div class="form-error">Valid date is required.</div>
           </div>
           <div class="form-group">
-            <label class="form-label" for="txn-account">Account *</label>
+            <label class="form-label" for="txn-account">Source / Ledger Account *</label>
             <select class="form-control" id="txn-account" required></select>
             <div class="form-error">Please select an account.</div>
           </div>
         </div>
+
         <div class="form-row">
           <div class="form-group">
-            <label class="form-label" for="txn-type">Type *</label>
+            <label class="form-label" for="txn-type">Transaction Type *</label>
             <select class="form-control" id="txn-type" required>
-              <option value="debit">Debit</option>
-              <option value="credit">Credit</option>
+              <option value="debit">Debit (Outflow / Expense / Money Paid)</option>
+              <option value="credit">Credit (Inflow / Income / Money Received)</option>
             </select>
           </div>
           <div class="form-group">
@@ -821,34 +880,103 @@
             <div class="form-error">Enter a valid positive amount.</div>
           </div>
         </div>
+
+        <!-- Reason / Purpose (User Requested) -->
         <div class="form-row">
-          <div class="form-group" style="flex:2;">
-            <label class="form-label" for="txn-description">Description / Notes</label>
-            <textarea class="form-control" id="txn-description" rows="1" placeholder="Transaction details…"></textarea>
+          <div class="form-group" style="flex:1.2;">
+            <label class="form-label" for="txn-reason">
+              <i class="fas fa-bullseye" style="color:var(--primary); margin-right:4px;"></i> Reason / Purpose *
+            </label>
+            <input type="text" class="form-control" id="txn-reason" list="txn-reason-list" placeholder="e.g. Staff Salaries, Office Rent, Utility Bill, Vendor Payment…" required>
+            <datalist id="txn-reason-list">
+              <option value="Staff Salaries & Wages">
+              <option value="Office / Shop Rent">
+              <option value="Electricity / Power Bill">
+              <option value="Internet & Telecommunications">
+              <option value="Vendor / Supplier Payment">
+              <option value="Customer Invoice Payment">
+              <option value="Raw Materials & Inventory">
+              <option value="Packaging & Delivery">
+              <option value="Office Supplies & Stationery">
+              <option value="Vehicle Fuel & Maintenance">
+              <option value="Marketing & Advertising">
+              <option value="Software & Tool Subscriptions">
+              <option value="Meals & Client Entertainment">
+              <option value="Consulting & Professional Fees">
+              <option value="Taxes & Government Duties">
+              <option value="Loan Given / Disbursed">
+              <option value="Loan Repayment / Settled">
+              <option value="Personal / Family Allowance">
+              <option value="Medical & Healthcare">
+              <option value="Product & Goods Sales">
+              <option value="Freelance & Project Income">
+            </datalist>
+            <div class="form-error">Please enter the reason for this transaction.</div>
           </div>
           <div class="form-group" style="flex:1;">
-            <label class="form-label" for="txn-category">Category</label>
+            <label class="form-label" for="txn-category">Defined Category</label>
             <select class="form-control" id="txn-category"></select>
           </div>
+        </div>
+
+        <!-- Beneficiary / Receiving Person Details Box (User Requested) -->
+        <div class="person-details-box" style="background:var(--bg-secondary); border:1px solid var(--border-primary); border-radius:var(--radius-md); padding:14px; margin-bottom:16px;">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+            <label class="form-label mb-0" id="lbl-person-details" style="font-size:12.5px; font-weight:600; text-transform:uppercase; letter-spacing:0.5px; color:var(--text-primary); margin-bottom:0;">
+              <i class="fas fa-user-circle" style="color:var(--primary); margin-right:5px;"></i> Receiving Person / Payee Details
+            </label>
+            <span class="text-muted" style="font-size:11px;">Beneficiary or sender involved</span>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group" style="flex:1.4;">
+              <label class="form-label" for="txn-person-name" id="lbl-person-name" style="font-size:12px;">Person / Business Name</label>
+              <input type="text" class="form-control" id="txn-person-name" list="txn-person-list" placeholder="e.g. Ahmed Khan, K-Electric, Apex Corp">
+              <datalist id="txn-person-list"></datalist>
+            </div>
+            <div class="form-group" style="flex:1;">
+              <label class="form-label" for="txn-person-phone" style="font-size:12px;">Phone Number</label>
+              <input type="tel" class="form-control" id="txn-person-phone" placeholder="e.g. +92 300 1234567">
+            </div>
+            <div class="form-group" style="flex:1;">
+              <label class="form-label" for="txn-person-role" style="font-size:12px;">Role / Relationship</label>
+              <select class="form-control" id="txn-person-role">
+                <option value="">-- Role / Relation --</option>
+                <option value="Vendor / Supplier">Vendor / Supplier</option>
+                <option value="Customer / Client">Customer / Client</option>
+                <option value="Employee / Staff">Employee / Staff</option>
+                <option value="Contractor / Freelancer">Contractor / Freelancer</option>
+                <option value="Landlord">Landlord</option>
+                <option value="Friend / Family">Friend / Family</option>
+                <option value="Government / Utility">Government / Utility</option>
+                <option value="Other">Other</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="txn-description">Additional Notes / Memo</label>
+          <textarea class="form-control" id="txn-description" rows="2" placeholder="Invoice #, check number, transaction memo, or remarks…"></textarea>
         </div>
 
         <!-- Transfer Toggle -->
         <div class="form-group mb-3">
           <label class="d-flex align-center gap-2" style="cursor:pointer; font-size:13px; font-weight:600;">
             <input type="checkbox" id="txn-is-transfer" style="width:16px; height:16px;">
-            Is this a Transfer?
+            Is this an Internal Transfer between accounts?
           </label>
         </div>
 
         <div id="transfer-extra-fields" class="form-row hidden">
           <div class="form-group">
-            <label class="form-label" for="txn-to-account">To Account *</label>
+            <label class="form-label" for="txn-to-account">Destination Account *</label>
             <select class="form-control" id="txn-to-account"></select>
             <div class="form-error">Please select destination account.</div>
           </div>
         </div>
         <div class="form-group">
-          <label class="form-label">Receipt (optional)</label>
+          <label class="form-label">Receipt / Invoice Attachment (optional)</label>
           <div class="file-upload" id="receipt-upload-area">
             <input type="file" id="txn-receipt-file" accept="image/png,image/jpeg,application/pdf,.msg,.eml,application/vnd.ms-outlook,message/rfc822">
             <i class="fas fa-cloud-upload-alt"></i>

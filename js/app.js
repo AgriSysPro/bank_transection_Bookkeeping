@@ -42,6 +42,13 @@ var BK = window.BK || {};
       this.statementsCtrl.init();
       this.automation.init();
 
+      // Seed standard accounting categories if none exist
+      BK.CategoriesDB.getAll().then(function (cats) {
+        if (!cats || cats.length === 0) {
+          BK.CategoriesDB.seedStandardCategories();
+        }
+      });
+
       this.initBackupRestore();
       this.initSidebarToggle();
       this.initQuickActions();
