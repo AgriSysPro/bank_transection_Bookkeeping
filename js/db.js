@@ -402,4 +402,22 @@ var BK = window.BK || {};
       if (data.preferences && data.preferences.length > 0) db.preferences.bulkAdd(data.preferences);
     });
   };
+
+  BK.getBusinessDetails = function () {
+    if (!db || !db.preferences) {
+      return Promise.resolve({ name: 'Bank Bookkeeper', address: '', phone: '', logo: '' });
+    }
+    return db.preferences.toArray().then(function (prefs) {
+      var biz = { name: 'Bank Bookkeeper', address: '', phone: '', logo: '' };
+      prefs.forEach(function (p) {
+        if (p.key === 'biz_name' && p.value) biz.name = p.value;
+        if (p.key === 'biz_address' && p.value) biz.address = p.value;
+        if (p.key === 'biz_phone' && p.value) biz.phone = p.value;
+        if (p.key === 'biz_logo' && p.value) biz.logo = p.value;
+      });
+      return biz;
+    }).catch(function () {
+      return { name: 'Bank Bookkeeper', address: '', phone: '', logo: '' };
+    });
+  };
 })();

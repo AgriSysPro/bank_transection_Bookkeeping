@@ -289,6 +289,9 @@
         <div class="page-header">
           <h2>Transactions</h2>
           <div class="d-flex gap-2">
+            <button class="btn btn-outline" id="btn-export-txns-excel" title="Export current filtered transactions to Excel (.xlsx)">
+              <i class="fas fa-file-excel text-success"></i> Export Excel
+            </button>
             <button class="btn btn-outline" id="btn-add-person-txn">
               <i class="fas fa-user-friends"></i> Person Payment / Loan
             </button>
@@ -406,7 +409,7 @@
           <h2>Account Statement</h2>
         </div>
 
-        <div class="card mb-3">
+        <div class="card mb-3" id="statement-filters-card">
           <!-- Date Presets -->
           <div class="d-flex gap-2 mb-2" style="flex-wrap:wrap; gap:8px !important;">
             <span style="font-size:12px; font-weight:600; color:var(--text-muted); margin-right:4px; align-self:center;">Quick:</span>

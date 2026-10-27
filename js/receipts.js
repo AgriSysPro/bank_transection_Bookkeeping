@@ -17,143 +17,198 @@ var BK = window.BK || {};
       if (!txn) return;
       
       var self = this;
-      this.getBusinessDetails().then(function(biz) {
-        self.renderPDF(txn, biz);
+      Promise.all([
+        BK.getBusinessDetails(),
+        BK.AccountsDB.get(txn.accountId),
+        txn.categoryId ? BK.CategoriesDB.get(txn.categoryId) : Promise.resolve(null)
+      ]).then(function(results) {
+        var biz = results[0];
+        var account = results[1];
+        var category = results[2];
+        self.renderPDF(txn, biz, account, category);
+      }).catch(function(err) {
+        BK.Toast.error('Failed to generate receipt: ' + err.message);
       });
     },
 
     getBusinessDetails: function() {
-      return BK.db.preferences.toArray().then(function(prefs) {
-        var biz = {};
-        prefs.forEach(function(p) {
-          if (p.key === 'biz_name') biz.name = p.value;
-          if (p.key === 'biz_address') biz.address = p.value;
-          if (p.key === 'biz_phone') biz.phone = p.value;
-          if (p.key === 'biz_logo') biz.logo = p.value;
-        });
-        return biz;
-      });
+      return BK.getBusinessDetails();
     },
 
-    renderPDF: function (txn, biz) {
+    renderPDF: function (txn, biz, account, category) {
       var JsPDF = jspdf.jsPDF;
       var doc = new JsPDF('p', 'pt', 'a4');
       
       var margin = 40;
       var pageWidth = doc.internal.pageSize.getWidth();
-      var accentColor = [0, 0, 0]; // Ink
+      var pageHeight = doc.internal.pageSize.getHeight();
       
       // ─── Header ───
-      // Logo
+      var headerTextX = margin;
       if (biz.logo) {
         try {
-          doc.addImage(biz.logo, 'PNG', margin, margin, 60, 60);
+          doc.addImage(biz.logo, 'PNG', margin, margin, 55, 55);
+          headerTextX = margin + 65;
         } catch(e) { console.error('Logo failed to render', e); }
       }
 
-      // Business Info
+      // Business Info (Crisp Black for Monochrome Printers)
       doc.setFont('helvetica', 'bold');
-      doc.setFontSize(22);
-      doc.setTextColor(accentColor[0], accentColor[1], accentColor[2]);
-      doc.text(biz.name || 'Bank Bookkeeper', biz.logo ? 110 : margin, margin + 20);
+      doc.setFontSize(20);
+      doc.setTextColor(0, 0, 0);
+      doc.text(biz.name || 'Bank Bookkeeper', headerTextX, margin + 18);
 
-      doc.setFont('helvetica', 'normal');
-      doc.setFontSize(10);
-      doc.setTextColor(100);
-      var sublineY = margin + 35;
-      if (biz.address) {
-        doc.text(biz.address, biz.logo ? 110 : margin, sublineY);
-        sublineY += 14;
-      }
-      if (biz.phone) {
-        doc.text('Phone: ' + biz.phone, biz.logo ? 110 : margin, sublineY);
-      }
-
-      // Receipt Title & ID
-      doc.setDrawColor(accentColor[0], accentColor[1], accentColor[2]);
-      doc.setLineWidth(2);
-      doc.line(margin, 120, pageWidth - margin, 120);
-
-      doc.setFontSize(16);
-      doc.setFont('helvetica', 'bold');
-      doc.setTextColor(0);
-      doc.text('TRANSACTION RECEIPT', margin, 145);
-      
-      doc.setFontSize(10);
-      doc.setFont('helvetica', 'normal');
-      doc.setTextColor(100);
-      doc.text('Receipt No: #' + (txn.id + 1000), pageWidth - margin, 145, { align: 'right' });
-
-      // ─── Body ───
-      var startY = 180;
-      var rowHeight = 30;
-
-      function renderRow(label, value, y, isBoldValue) {
-        doc.setFont('helvetica', 'bold');
-        doc.setTextColor(120);
-        doc.text(label, margin, y);
-        
-        doc.setFont('helvetica', isBoldValue ? 'bold' : 'normal');
-        doc.setTextColor(0);
-        doc.text(String(value), 180, y);
-        
-        doc.setDrawColor(240);
-        doc.setLineWidth(0.5);
-        doc.line(margin, y + 8, pageWidth - margin, y + 8);
-      }
-
-      renderRow('Date', U.formatDate(txn.date), startY);
-      renderRow('Type', txn.type.toUpperCase() + (txn.type === 'credit' ? ' (INFLOW)' : ' (OUTFLOW)'), startY + rowHeight);
-      
-      doc.setFontSize(14);
-      renderRow('Amount', U.formatCurrency(txn.amount), startY + rowHeight * 2, true);
-      doc.setFontSize(10);
-
-      var curY = startY + rowHeight * 3;
-      if (txn.reason) {
-        renderRow('Reason / Purpose', txn.reason, curY, true);
-        curY += rowHeight;
-      }
-
-      if (txn.personName) {
-        var personLabel = txn.type === 'credit' ? 'Received From (Payer)' : 'Paid To (Beneficiary)';
-        var personVal = txn.personName + (txn.personPhone ? ' | Tel: ' + txn.personPhone : '') + (txn.personRole ? ' [' + txn.personRole + ']' : '');
-        renderRow(personLabel, personVal, curY);
-        curY += rowHeight;
-      }
-      
-      renderRow('Memo / Reference', txn.description || 'N/A', curY);
-      curY += rowHeight;
-      
-      // ─── Total Box ───
-      var boxY = Math.max(curY + 15, 340);
-      doc.setFillColor(250, 251, 255);
-      doc.rect(margin, boxY, pageWidth - margin * 2, 80, 'F');
-      doc.setDrawColor(accentColor[0], accentColor[1], accentColor[2]);
-      doc.rect(margin, boxY, pageWidth - margin * 2, 80, 'S');
-
-      doc.setFont('helvetica', 'bold');
-      doc.setFontSize(12);
-      doc.text('TOTAL AMOUNT', margin + 20, boxY + 35);
-      
-      doc.setFontSize(24);
-      doc.setTextColor(accentColor[0], accentColor[1], accentColor[2]);
-      doc.text(U.formatCurrency(txn.amount), pageWidth - margin - 20, boxY + 50, { align: 'right' });
-
-      // ─── Footer ───
       doc.setFont('helvetica', 'normal');
       doc.setFontSize(9);
-      doc.setTextColor(150);
-      doc.text('Thank you for using our bookkeeping services.', pageWidth / 2, 750, { align: 'center' });
-      doc.text('This is a computer-generated document and requires no signature.', pageWidth / 2, 765, { align: 'center' });
+      doc.setTextColor(50, 50, 50);
+      var sublineY = margin + 32;
+      if (biz.address) {
+        doc.text(biz.address, headerTextX, sublineY);
+        sublineY += 13;
+      }
+      if (biz.phone) {
+        doc.text('Phone / Mobile: ' + biz.phone, headerTextX, sublineY);
+      }
+
+      // Document Title & Voucher Badge
+      var dividerY = 112;
+      doc.setDrawColor(0, 0, 0);
+      doc.setLineWidth(1.5);
+      doc.line(margin, dividerY, pageWidth - margin, dividerY);
+
+      doc.setFontSize(14);
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(0, 0, 0);
+      var isCredit = txn.type === 'credit';
+      var titleText = isCredit ? 'PAYMENT RECEIPT / CASH INFLOW VOUCHER' : 'PAYMENT VOUCHER / CASH OUTFLOW';
+      doc.text(titleText, margin, dividerY + 22);
       
-      doc.setDrawColor(230);
-      doc.line(margin, 780, pageWidth - margin, 780);
-      doc.text('Generated by Bank Bookkeeper Pro', margin, 795);
-      doc.text(new Date().toLocaleString(), pageWidth - margin, 795, { align: 'right' });
+      doc.setFontSize(9.5);
+      doc.setFont('helvetica', 'normal');
+      doc.setTextColor(0, 0, 0);
+      doc.text('Voucher No: #VCH-' + (txn.id + 1000), pageWidth - margin, dividerY + 16, { align: 'right' });
+      doc.text('Date: ' + U.formatDate(txn.date), pageWidth - margin, dividerY + 28, { align: 'right' });
+
+      // ─── Voucher Details Table (High-Contrast B&W Table) ───
+      var startY = dividerY + 42;
+      var labelWidth = 140;
+      var valWidth = pageWidth - margin * 2 - labelWidth;
+      var rowHeight = 24;
+
+      var rows = [
+        { label: 'Transaction Date', value: U.formatDate(txn.date) },
+        { label: 'Voucher Type', value: (txn.type === 'credit' ? 'CREDIT / INFLOW (Money Received)' : 'DEBIT / OUTFLOW (Money Paid Out)') },
+        { label: 'Account / Channel', value: (account ? account.name + (account.accountNumber ? ' (' + account.accountNumber + ')' : '') : 'Primary Account') },
+        { label: 'Category', value: (category ? category.name : 'General') },
+        { label: 'Reason / Purpose', value: (txn.reason || 'General Ledger Entry'), isBold: true }
+      ];
+
+      if (txn.personName) {
+        var personLabel = isCredit ? 'Received From (Payer)' : 'Paid To (Beneficiary)';
+        var personVal = txn.personName + (txn.personPhone ? ' | Tel: ' + txn.personPhone : '') + (txn.personRole ? ' [' + txn.personRole.toUpperCase() + ']' : '');
+        rows.push({ label: personLabel, value: personVal, isBold: true });
+      }
+
+      rows.push({ label: 'Memo / Reference', value: (txn.description || '\u2014') });
+
+      var curY = startY;
+      rows.forEach(function (r) {
+        // Label Box (Subtle 3% neutral tint for B&W laser printers)
+        doc.setFillColor(242, 242, 242);
+        doc.rect(margin, curY, labelWidth, rowHeight, 'F');
+        
+        // Borders (Crisp dark lines)
+        doc.setDrawColor(0, 0, 0);
+        doc.setLineWidth(0.5);
+        doc.rect(margin, curY, labelWidth, rowHeight, 'S');
+        doc.rect(margin + labelWidth, curY, valWidth, rowHeight, 'S');
+
+        // Label Text
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(9);
+        doc.setTextColor(0, 0, 0);
+        doc.text(r.label, margin + 8, curY + 15);
+
+        // Value Text
+        doc.setFont('helvetica', r.isBold ? 'bold' : 'normal');
+        doc.setFontSize(9.5);
+        doc.setTextColor(0, 0, 0);
+        
+        // Truncate if too long for one line
+        var maxChars = 68;
+        var displayVal = r.value || '\u2014';
+        if (displayVal.length > maxChars) displayVal = displayVal.substring(0, maxChars) + '...';
+        doc.text(displayVal, margin + labelWidth + 8, curY + 15);
+
+        curY += rowHeight;
+      });
+
+      // ─── Total Amount Box (High-Contrast Monochrome Highlight) ───
+      var totalBoxY = curY + 18;
+      var totalBoxHeight = 58;
+
+      // Outer heavy border
+      doc.setFillColor(255, 255, 255);
+      doc.rect(margin, totalBoxY, pageWidth - margin * 2, totalBoxHeight, 'F');
+      doc.setDrawColor(0, 0, 0);
+      doc.setLineWidth(1.5);
+      doc.rect(margin, totalBoxY, pageWidth - margin * 2, totalBoxHeight, 'S');
+      
+      // Inner decorative hairline border for banknote / voucher style
+      doc.setLineWidth(0.5);
+      doc.rect(margin + 3, totalBoxY + 3, pageWidth - margin * 2 - 6, totalBoxHeight - 6, 'S');
+
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(11);
+      doc.setTextColor(0, 0, 0);
+      doc.text('TOTAL AMOUNT RECORDED', margin + 18, totalBoxY + 34);
+
+      doc.setFontSize(20);
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(0, 0, 0);
+      doc.text(U.formatCurrency(txn.amount), pageWidth - margin - 18, totalBoxY + 35, { align: 'right' });
+
+      // ─── Official Signatures Section (For Paper Audits & Filing) ───
+      var sigY = totalBoxY + totalBoxHeight + 85;
+      var sigLineWidth = 200;
+
+      // Left Signature: Payer / Beneficiary
+      doc.setDrawColor(0, 0, 0);
+      doc.setLineWidth(0.8);
+      doc.line(margin, sigY, margin + sigLineWidth, sigY);
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(9);
+      doc.setTextColor(0, 0, 0);
+      var leftSigTitle = isCredit ? 'Payer / Depositor Signature' : 'Beneficiary / Receiver Signature';
+      doc.text(leftSigTitle, margin, sigY + 14);
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(8);
+      doc.text('Date: ________________________', margin, sigY + 28);
+
+      // Right Signature: Authorized Official
+      var rightSigX = pageWidth - margin - sigLineWidth;
+      doc.line(rightSigX, sigY, pageWidth - margin, sigY);
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(9);
+      doc.text('Authorized Signatory & Stamp', rightSigX, sigY + 14);
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(8);
+      doc.text('Audited & Entered into BookKeeper', rightSigX, sigY + 28);
+
+      // ─── Running Footer ───
+      var footerY = pageHeight - 38;
+      doc.setDrawColor(0, 0, 0);
+      doc.setLineWidth(0.8);
+      doc.line(margin, footerY, pageWidth - margin, footerY);
+
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(8);
+      doc.setTextColor(70, 70, 70);
+      doc.text('Official Customer Copy \u2022 Verified Double-Entry Ledger Record \u2022 BookKeeper Financial System', margin, footerY + 14);
+      doc.text('Printed: ' + new Date().toLocaleString() + ' \u2022 Page 1 of 1', pageWidth - margin, footerY + 14, { align: 'right' });
 
       doc.save('Receipt_' + txn.id + '_' + txn.date + '.pdf');
-      BK.Toast.success('A4 Receipt generated successfully.');
+      BK.Toast.success('High-contrast A4 Receipt generated.');
     }
   };
 

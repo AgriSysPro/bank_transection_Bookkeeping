@@ -35,6 +35,13 @@ var BK = window.BK || {};
     var addBtn = document.getElementById('btn-add-transaction');
     if (addBtn) addBtn.addEventListener('click', function () { self.showForm(); });
 
+    var exportExcelBtn = document.getElementById('btn-export-txns-excel');
+    if (exportExcelBtn) {
+      exportExcelBtn.addEventListener('click', function () {
+        self.exportExcel();
+      });
+    }
+
     var addPersonBtn = document.getElementById('btn-add-person-txn');
     if (addPersonBtn) {
       addPersonBtn.addEventListener('click', function () {
@@ -988,6 +995,134 @@ var BK = window.BK || {};
     if (searchInput) searchInput.value = this.filters.search;
 
     this.renderTable();
+  };
+
+  // ─── Export Filtered Ledger to Excel (Optimized for B&W Printing) ───
+  TransactionsController.prototype.exportExcel = function () {
+    var self = this;
+    BK.getBusinessDetails().then(function (biz) {
+      return Promise.all([TDB.getAll(), ADB.getAll(), BK.CategoriesDB.getAll()]).then(function (results) {
+        var transactions = results[0];
+        var accounts = results[1];
+        var categories = results[2];
+
+        var accountMap = {};
+        var accountTypeMap = {};
+        accounts.forEach(function (a) {
+          accountMap[a.id] = a.name;
+          accountTypeMap[a.id] = a.accountType || 'bank';
+        });
+
+        var catMap = {};
+        categories.forEach(function (c) { catMap[c.id] = c.name; });
+
+        // Apply filters
+        var filtered = transactions;
+        if (self.filters.accountId) {
+          var accId = parseInt(self.filters.accountId);
+          filtered = filtered.filter(function (t) { return t.accountId === accId; });
+        }
+        if (self.filters.accountType) {
+          filtered = filtered.filter(function (t) { return accountTypeMap[t.accountId] === self.filters.accountType; });
+        }
+        if (self.filters.type) {
+          filtered = filtered.filter(function (t) { return t.type === self.filters.type; });
+        }
+        if (self.filters.search) {
+          var q = self.filters.search.toLowerCase();
+          filtered = filtered.filter(function (t) {
+            var desc = (t.description || '').toLowerCase();
+            var reason = (t.reason || '').toLowerCase();
+            var pName = (t.personName || '').toLowerCase();
+            var pPhone = (t.personPhone || '').toLowerCase();
+            var pRole = (t.personRole || '').toLowerCase();
+            var accName = (accountMap[t.accountId] || '').toLowerCase();
+            var catName = (catMap[t.categoryId] || '').toLowerCase();
+            return desc.includes(q) || reason.includes(q) || pName.includes(q) || pPhone.includes(q) || pRole.includes(q) || accName.includes(q) || catName.includes(q);
+          });
+        }
+
+        filtered = U.sortData(filtered, self.sort.key, self.sort.direction);
+
+        if (filtered.length === 0) {
+          Toast.warning('No transactions found to export.');
+          return;
+        }
+
+        var rows = [];
+
+        // 1. Business Header Block
+        rows.push([biz.name || 'Bank Bookkeeper']);
+        if (biz.address) rows.push([biz.address]);
+        if (biz.phone) rows.push(['Phone: ' + biz.phone]);
+        rows.push(['TRANSACTIONS GENERAL LEDGER / JOURNAL']);
+        rows.push(['Report Date:', new Date().toLocaleString(), '', 'Total Transactions:', filtered.length]);
+        
+        var filterSummaryParts = [];
+        if (self.filters.search) filterSummaryParts.push('Search: "' + self.filters.search + '"');
+        if (self.filters.accountId) filterSummaryParts.push('Account: ' + accountMap[self.filters.accountId]);
+        if (self.filters.accountType) filterSummaryParts.push('Account Type: ' + self.filters.accountType.toUpperCase());
+        if (self.filters.type) filterSummaryParts.push('Type: ' + self.filters.type.toUpperCase());
+        rows.push(['Active Filters:', filterSummaryParts.length > 0 ? filterSummaryParts.join(' | ') : 'All Transactions']);
+        rows.push([]);
+
+        // 2. Ledger Columns (Explicit DR/CR columns for Black & White clarity)
+        rows.push(['Date', 'Account', 'Type', 'Debit (DR)', 'Credit (CR)', 'Reason / Purpose', 'Party / Beneficiary', 'Phone', 'Role', 'Category', 'Memo / Reference', 'Status']);
+
+        var totalDebits = 0;
+        var totalCredits = 0;
+
+        filtered.forEach(function (t) {
+          var isCredit = t.type === 'credit';
+          if (isCredit) totalCredits += t.amount;
+          else totalDebits += t.amount;
+
+          rows.push([
+            U.formatDate(t.date),
+            accountMap[t.accountId] || 'N/A',
+            isCredit ? 'Credit' : 'Debit',
+            isCredit ? '' : t.amount,
+            isCredit ? t.amount : '',
+            t.reason || '',
+            t.personName || '',
+            t.personPhone || '',
+            t.personRole ? t.personRole.toUpperCase() : '',
+            catMap[t.categoryId] || '',
+            t.description || '',
+            t.verified ? 'Verified' : 'Unverified'
+          ]);
+        });
+
+        // 3. Financial Summary Block
+        rows.push([]);
+        rows.push(['FINANCIAL SUMMARY TOTALS', '', '', totalDebits, totalCredits, '', '', '', '', '', '', '']);
+        rows.push(['Net Ledger Movement', '', '', '', totalCredits - totalDebits, '', '', '', '', '', '', '']);
+        rows.push([]);
+
+        // 4. Signatures & Official Audit Block
+        rows.push(['Prepared By: __________________________', '', '', '', 'Authorized Signatory & Stamp: __________________________', '', '', '', '', '', '', '']);
+        rows.push(['Date: __________________________', '', '', '', 'Official Audit & Double-Entry Verification', '', '', '', '', '', '', '']);
+
+        var ws = XLSX.utils.aoa_to_sheet(rows);
+        ws['!cols'] = [
+          { wch: 13 }, { wch: 22 }, { wch: 10 }, { wch: 16 }, { wch: 16 },
+          { wch: 24 }, { wch: 22 }, { wch: 15 }, { wch: 12 }, { wch: 18 },
+          { wch: 30 }, { wch: 12 }
+        ];
+
+        // Optimized for Black & White landscape printout from Excel
+        ws['!pageSetup'] = { orientation: 'landscape', fitToWidth: 1, fitToHeight: 0 };
+
+        var wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, 'Ledger');
+
+        var filename = 'transactions_ledger_' + new Date().toISOString().split('T')[0] + '.xlsx';
+        XLSX.writeFile(wb, filename);
+        Toast.success('Transactions exported to Excel successfully.');
+      });
+    }).catch(function (err) {
+      Toast.error('Export failed: ' + err.message);
+    });
   };
 
   BK.TransactionsController = TransactionsController;
