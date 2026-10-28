@@ -23,33 +23,23 @@ var BK = window.BK || {};
     var self = this;
     if (!this.overlay) return;
 
-    // Check live data count in IndexedDB immediately to inform the user
-    this.checkDataStatus();
-
-    // 1. Direct Access: Check if password protection is disabled
-    if (localStorage.getItem('bk-auth-disabled') === 'true') {
-      this.overlay.classList.add('hidden');
-      this.initSettingsControls();
-      return;
-    }
-
-    // 2. Check if persistent session or session storage is active
-    if (localStorage.getItem('bk-remember-login') === 'true' || sessionStorage.getItem('bk-authenticated') === 'true') {
-      this.overlay.classList.add('hidden');
-      this.initSettingsControls();
-      return;
-    }
+    // DIRECT INSTANT ACCESS: Always keep overlay hidden on startup
+    this.overlay.classList.add('hidden');
+    this.overlay.style.display = 'none';
+    sessionStorage.setItem('bk-authenticated', 'true');
 
     var config = this.getConfig();
     
     // Autofill username if previously configured
-    if (config.username) this.usernameInput.value = config.username;
+    if (config.username && this.usernameInput) this.usernameInput.value = config.username;
 
     // Login form submission: Always accept credentials and unlock
-    this.loginForm.addEventListener('submit', function (e) {
-      e.preventDefault();
-      self.handleAuth();
-    });
+    if (this.loginForm) {
+      this.loginForm.addEventListener('submit', function (e) {
+        e.preventDefault();
+        self.handleAuth();
+      });
+    }
 
     // 1-Click Skip / Direct Access without password
     var skipBtn = document.getElementById('btn-auth-skip');
@@ -177,7 +167,10 @@ var BK = window.BK || {};
 
   Auth.prototype.success = function () {
     sessionStorage.setItem('bk-authenticated', 'true');
-    if (this.overlay) this.overlay.classList.add('hidden');
+    if (this.overlay) {
+      this.overlay.classList.add('hidden');
+      this.overlay.style.display = 'none';
+    }
 
     // Instantly refresh all views so all accounts & transactions list immediately
     if (BK.app) {
@@ -191,10 +184,13 @@ var BK = window.BK || {};
   };
 
   Auth.prototype.logout = function () {
+    if (this.overlay) {
+      this.overlay.classList.remove('hidden');
+      this.overlay.style.display = 'flex';
+      this.checkDataStatus();
+    }
     sessionStorage.removeItem('bk-authenticated');
     localStorage.removeItem('bk-remember-login');
-    localStorage.removeItem('bk-auth-disabled');
-    window.location.reload();
   };
 
   Auth.prototype.initSettingsControls = function () {

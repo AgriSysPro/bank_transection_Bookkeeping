@@ -59,11 +59,17 @@ var BK = window.BK || {};
       window.addEventListener('transactions-updated', function () { self.renderDashboard(); });
 
       this.renderDashboard();
+      this.accountsCtrl.render();
+      this.transactionsCtrl.render();
       this.updateNavBadges();
       this.startClock();
       if (BK.Charts) BK.Charts.init();
       if (BK.CommandPalette) new BK.CommandPalette(this).init();
       this.initBusinessDetails();
+
+      Promise.all([BK.AccountsDB.count(), BK.TransactionsDB.count()]).then(function (counts) {
+        console.log('[BookKeeper Ready] Loaded ' + counts[0] + ' Accounts and ' + counts[1] + ' Transactions from IndexedDB.');
+      });
       console.log('Bank Bookkeeping App initialized successfully.');
     } catch (err) {
       console.error('App initialization failed:', err);
