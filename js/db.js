@@ -69,6 +69,9 @@ var BK = window.BK || {};
     getById: function (id) {
       return db.accounts.get(id);
     },
+    get: function (id) {
+      return db.accounts.get(id);
+    },
     add: function (account) {
       var now = new Date().toISOString();
       return db.accounts.add({
@@ -113,6 +116,15 @@ var BK = window.BK || {};
     },
     getByType: function (type) {
       return db.categories.where('type').equals(type).toArray();
+    },
+    getById: function (id) {
+      return db.categories.get(id);
+    },
+    get: function (id) {
+      return db.categories.get(id);
+    },
+    count: function () {
+      return db.categories.count();
     },
     add: function (category) {
       return db.categories.add({
@@ -224,6 +236,9 @@ var BK = window.BK || {};
       });
     },
     getById: function (id) {
+      return db.transactions.get(id);
+    },
+    get: function (id) {
       return db.transactions.get(id);
     },
     getByAccount: function (accountId) {

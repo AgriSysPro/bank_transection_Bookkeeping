@@ -716,9 +716,6 @@ var BK = window.BK || {};
       categoryId: categoryId, isTransfer: isTransfer,
       receiptData: self.receiptData, receiptType: self.receiptType, receiptName: self.receiptName
     };
-      categoryId: categoryId, isTransfer: isTransfer,
-      receiptData: self.receiptData, receiptType: self.receiptType, receiptName: self.receiptName
-    };
 
     var promise;
     if (self.editingId) {
