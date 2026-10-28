@@ -23,6 +23,9 @@ var BK = window.BK || {};
     var self = this;
     if (!this.overlay) return;
 
+    // Check live data count in IndexedDB immediately to inform the user
+    this.checkDataStatus();
+
     // 1. Direct Access: Check if password protection is disabled
     if (localStorage.getItem('bk-auth-disabled') === 'true') {
       this.overlay.classList.add('hidden');
@@ -42,17 +45,7 @@ var BK = window.BK || {};
     // Autofill username if previously configured
     if (config.username) this.usernameInput.value = config.username;
 
-    if (!config.password) {
-      // First run or reset: Setup
-      this.authTitle.textContent = 'Welcome to BookKeeper';
-      this.authBtn.textContent = 'Set Password & Enter';
-    } else {
-      // Login mode
-      this.authTitle.textContent = 'Welcome Back';
-      this.authBtn.textContent = 'Login';
-    }
-
-    // Form submission
+    // Login form submission: Always accept credentials and unlock
     this.loginForm.addEventListener('submit', function (e) {
       e.preventDefault();
       self.handleAuth();
@@ -81,7 +74,61 @@ var BK = window.BK || {};
       });
     }
 
+    // Backup restore directly from login screen
+    var importBackupBtn = document.getElementById('btn-auth-import-backup');
+    var importBackupFile = document.getElementById('auth-import-backup-file');
+    if (importBackupBtn && importBackupFile) {
+      importBackupBtn.addEventListener('click', function () {
+        importBackupFile.click();
+      });
+      importBackupFile.addEventListener('change', function (e) {
+        var file = e.target.files[0];
+        if (!file) return;
+        var reader = new FileReader();
+        reader.onload = function (event) {
+          try {
+            var backup = JSON.parse(event.target.result);
+            BK.restoreAllData(backup).then(function () {
+              Toast.success('Backup restored successfully! All data loaded.');
+              self.skipLogin();
+            });
+          } catch (err) {
+            Toast.error('Failed to read backup file: ' + err.message);
+          } finally {
+            importBackupFile.value = '';
+          }
+        };
+        reader.readAsText(file);
+      });
+    }
+
     this.initSettingsControls();
+  };
+
+  Auth.prototype.checkDataStatus = function () {
+    if (!BK.db || !BK.db.accounts || !BK.db.transactions) return;
+
+    Promise.all([
+      BK.db.accounts.count(),
+      BK.db.transactions.count()
+    ]).then(function (results) {
+      var accCount = results[0];
+      var txnCount = results[1];
+      var statusEl = document.getElementById('auth-data-status');
+      if (!statusEl) return;
+
+      if (txnCount > 0 || accCount > 0) {
+        statusEl.innerHTML = '<div style="background:rgba(34,197,94,0.12); border:1px solid #22c55e; color:#4ade80; border-radius:6px; padding:8px 12px; font-size:12px; text-align:left;">' +
+          '<i class="fas fa-check-circle" style="margin-right:6px;"></i> <strong>Data Vault Detected:</strong> ' + accCount + ' Accounts and ' + txnCount + ' Transactions are ready in this browser.' +
+        '</div>';
+      } else {
+        statusEl.innerHTML = '<div style="background:rgba(59,130,246,0.12); border:1px solid #3b82f6; color:#93c5fd; border-radius:6px; padding:8px 12px; font-size:11.5px; text-align:left; line-height:1.4;">' +
+          '<i class="fas fa-info-circle" style="margin-right:6px;"></i> <strong>Storage Note:</strong> Data is saved locally in your browser. If you previously worked in Chrome, Edge, or via a local server URL (e.g. <code>localhost:5500</code>), open that same URL to view previous records, or click <em>"Restore Backup"</em> below.' +
+        '</div>';
+      }
+    }).catch(function (e) {
+      console.warn('Could not check database count:', e);
+    });
   };
 
   Auth.prototype.getConfig = function () {
@@ -90,42 +137,16 @@ var BK = window.BK || {};
   };
 
   Auth.prototype.handleAuth = function () {
-    var user = this.usernameInput.value.trim();
+    var user = this.usernameInput.value.trim() || 'User';
     var pass = this.passwordInput.value.trim();
-    var config = this.getConfig();
 
-    // If both empty, allow instant entry
-    if (!user && !pass) {
-      this.skipLogin();
-      return;
-    }
+    // Save whichever credentials the user typed so they can use it
+    localStorage.setItem('bk-auth-config', JSON.stringify({ username: user, password: pass }));
+    localStorage.removeItem('bk-auth-disabled');
+    this.checkRememberMe();
 
-    if (!config.password) {
-      // Setting up initial password
-      if (!pass) {
-        Toast.warning('Please enter a password or click "Enter Without Password".');
-        return;
-      }
-      localStorage.setItem('bk-auth-config', JSON.stringify({ username: user || 'admin', password: pass }));
-      localStorage.removeItem('bk-auth-disabled');
-      this.checkRememberMe();
-      Toast.success('Password set! Welcome to your workspace.');
-      this.success();
-    } else {
-      // Verifying login - case-insensitive on username
-      var userMatches = !config.username || (user.toLowerCase() === config.username.toLowerCase());
-      var passMatches = pass === config.password;
-
-      if (userMatches && passMatches) {
-        this.checkRememberMe();
-        Toast.success('Login successful. Welcome back!');
-        this.success();
-      } else {
-        Toast.error('Incorrect credentials. Click "Enter Without Password" or "Forgot Password" to access your data.');
-        this.passwordInput.value = '';
-        this.passwordInput.focus();
-      }
-    }
+    Toast.success('Welcome back, ' + user + '! Loading your records...');
+    this.success();
   };
 
   Auth.prototype.checkRememberMe = function () {
@@ -138,25 +159,35 @@ var BK = window.BK || {};
   Auth.prototype.skipLogin = function () {
     sessionStorage.setItem('bk-authenticated', 'true');
     this.checkRememberMe();
-    this.overlay.classList.add('hidden');
-    Toast.success('Welcome! Entered workspace without password.');
+    this.success();
+    Toast.success('Welcome! Entered workspace.');
   };
 
   Auth.prototype.resetLock = function () {
-    var confirmed = confirm('Reset your login password? All your accounts, transactions, and settings remain 100% safe in your browser.');
+    var confirmed = confirm('Reset login credentials? Your financial data, transactions, and accounts will NOT be deleted.');
     if (!confirmed) return;
 
     localStorage.removeItem('bk-auth-config');
     localStorage.removeItem('bk-remember-login');
     localStorage.setItem('bk-auth-disabled', 'true');
     sessionStorage.setItem('bk-authenticated', 'true');
-    this.overlay.classList.add('hidden');
+    this.success();
     Toast.success('Password lock removed. Direct access enabled.');
   };
 
   Auth.prototype.success = function () {
     sessionStorage.setItem('bk-authenticated', 'true');
-    this.overlay.classList.add('hidden');
+    if (this.overlay) this.overlay.classList.add('hidden');
+
+    // Instantly refresh all views so all accounts & transactions list immediately
+    if (BK.app) {
+      BK.app.refreshAll();
+      if (BK.app.transactionsCtrl) BK.app.transactionsCtrl.render();
+      if (BK.app.accountsCtrl) BK.app.accountsCtrl.render();
+      if (BK.app.statementsCtrl && BK.app.statementsCtrl.populateAccountDropdown) {
+        BK.app.statementsCtrl.populateAccountDropdown();
+      }
+    }
   };
 
   Auth.prototype.logout = function () {
@@ -208,7 +239,12 @@ var BK = window.BK || {};
     sessionStorage.setItem('bk-authenticated', 'true');
     var overlay = document.getElementById('auth-overlay');
     if (overlay) overlay.classList.add('hidden');
-    if (BK.Toast) BK.Toast.success('Direct access enabled. Password lock disabled.');
+    if (BK.app) {
+      BK.app.refreshAll();
+      if (BK.app.transactionsCtrl) BK.app.transactionsCtrl.render();
+      if (BK.app.accountsCtrl) BK.app.accountsCtrl.render();
+    }
+    if (BK.Toast) BK.Toast.success('Direct access enabled. Loading records...');
   };
 
   BK.Auth = Auth;

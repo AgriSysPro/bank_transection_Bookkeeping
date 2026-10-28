@@ -33,16 +33,20 @@
 <div class="auth-overlay" id="auth-overlay">
   <div class="auth-card">
     <div class="auth-logo">B</div>
-    <h1 class="auth-title" id="auth-title">Welcome</h1>
+    <h1 class="auth-title" id="auth-title">Welcome Back</h1>
     <p class="auth-subtitle">Bank Transaction Bookkeeping</p>
+
+    <!-- Live Database Connection Status -->
+    <div id="auth-data-status" style="margin-bottom:14px;"></div>
+
     <form id="auth-form">
       <div class="form-group">
         <label class="form-label" for="auth-username">Username</label>
-        <input type="text" class="form-control" id="auth-username" autocomplete="username">
+        <input type="text" class="form-control" id="auth-username" placeholder="Enter your username" autocomplete="username">
       </div>
       <div class="form-group">
         <label class="form-label" for="auth-password">Password</label>
-        <input type="password" class="form-control" id="auth-password" autocomplete="current-password">
+        <input type="password" class="form-control" id="auth-password" placeholder="Enter your password" autocomplete="current-password">
       </div>
       <div class="d-flex justify-between align-center mt-2 mb-2" style="font-size:12px;">
         <label style="display:flex; align-items:center; gap:6px; cursor:pointer; color:var(--color-shade-40, #a1a1aa);">
@@ -53,15 +57,19 @@
         </button>
       </div>
       <button type="submit" class="btn btn-outline-on-dark btn-lg" style="width:100%; margin-top:8px;" id="btn-auth-submit">
-        Login
+        <i class="fas fa-sign-in-alt" style="margin-right:6px;"></i> Login &amp; View All Records
       </button>
       <button type="button" class="btn btn-ghost" id="btn-auth-skip" style="width:100%; margin-top:10px; border:1px solid rgba(255,255,255,0.2); color:#ffffff; font-size:13px; font-weight:600;">
-        <i class="fas fa-arrow-right" style="margin-right:6px;"></i> Enter Without Password (Skip Login)
+        <i class="fas fa-arrow-right" style="margin-right:6px;"></i> Enter Directly Without Password
       </button>
     </form>
-    <div class="d-flex justify-between align-center mt-3" style="font-size:11px; color:var(--text-muted);">
-      <span>Your data stays in your browser.</span>
-      <button type="button" id="btn-auth-reset-all" style="background:none; border:none; color:#f87171; cursor:pointer; text-decoration:underline;">
+
+    <div class="d-flex justify-between align-center mt-3" style="font-size:11px; color:var(--text-muted); border-top:1px solid rgba(255,255,255,0.1); padding-top:10px;">
+      <button type="button" id="btn-auth-import-backup" style="background:none; border:none; color:#38bdf8; cursor:pointer; padding:0;">
+        <i class="fas fa-upload"></i> Restore Backup (.json)
+      </button>
+      <input type="file" id="auth-import-backup-file" accept=".json" style="display:none;">
+      <button type="button" id="btn-auth-reset-all" style="background:none; border:none; color:#f87171; cursor:pointer; text-decoration:underline; padding:0;">
         Reset Lock
       </button>
     </div>
