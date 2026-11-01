@@ -26,6 +26,8 @@ var BK = window.BK || {};
       { id: 'go-cat', title: 'Go to Categories', icon: 'fa-tags', action: function() { app.navigation.navigateTo('categories'); } },
       { id: 'go-stmt', title: 'Go to Statements', icon: 'fa-file-invoice-dollar', action: function() { app.navigation.navigateTo('statements'); } },
       { id: 'toggle-theme', title: 'Toggle Light/Dark Theme', icon: 'fa-adjust', action: function() { app.themeManager.toggle(); } },
+      { id: 'export-net-pdf', title: 'Export Net Balance Sheet (PDF)', icon: 'fa-file-pdf', action: function() { BK.FinancialReports.exportNetBalancePDF(); } },
+      { id: 'export-net-excel', title: 'Export Net Balance Sheet (Excel)', icon: 'fa-file-excel', action: function() { BK.FinancialReports.exportNetBalanceExcel(); } },
       { id: 'export-json', title: 'Export Backup (JSON)', icon: 'fa-download', action: function() { document.getElementById('btn-export-data').click(); } }
     ];
   }

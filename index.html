@@ -165,7 +165,13 @@
       <section class="page active" id="page-dashboard">
         <div class="page-header">
           <h2>Overview & Analytics</h2>
-          <div class="d-flex gap-2">
+          <div class="d-flex gap-2" style="flex-wrap:wrap;">
+            <button class="btn btn-outline" id="btn-dashboard-net-excel" title="Download Balance Sheet & Net Worth in Excel (.xlsx)">
+              <i class="fas fa-file-excel text-success"></i> Net Balance (Excel)
+            </button>
+            <button class="btn btn-outline" id="btn-dashboard-net-pdf" title="Download Balance Sheet & Net Worth in PDF">
+              <i class="fas fa-file-pdf text-danger"></i> Net Balance (PDF)
+            </button>
             <button class="btn btn-outline" id="btn-quick-add-account" title="Create a new bank account">
               <i class="fas fa-university"></i> New Account
             </button>
@@ -279,9 +285,17 @@
       <section class="page" id="page-accounts">
         <div class="page-header">
           <h2>Accounts</h2>
-          <button class="btn btn-primary" id="btn-add-account">
-            <i class="fas fa-plus"></i> New Account
-          </button>
+          <div class="d-flex gap-2" style="flex-wrap:wrap;">
+            <button class="btn btn-outline" id="btn-export-net-balance-excel" title="Export Net Balance Sheet to Excel (.xlsx)">
+              <i class="fas fa-file-excel text-success"></i> Net Balance (Excel)
+            </button>
+            <button class="btn btn-outline" id="btn-export-net-balance-pdf" title="Export Net Balance Sheet to PDF">
+              <i class="fas fa-file-pdf text-danger"></i> Net Balance (PDF)
+            </button>
+            <button class="btn btn-primary" id="btn-add-account">
+              <i class="fas fa-plus"></i> New Account
+            </button>
+          </div>
         </div>
         <div class="accounts-grid" id="accounts-grid"></div>
       </section>
@@ -430,7 +444,28 @@
 
       <section class="page" id="page-statements">
         <div class="page-header">
-          <h2>Account Statement</h2>
+          <h2>Account Statement &amp; Net Balance</h2>
+        </div>
+
+        <!-- Net Financial Position & Balance Sheet Quick Export Banner -->
+        <div class="card mb-3 p-3 d-flex justify-between align-center" style="background:var(--bg-card); border:1px solid var(--border-color); flex-wrap:wrap; gap:12px;">
+          <div>
+            <h3 style="font-size:14px; margin-bottom:4px; font-weight:700;">
+              <i class="fas fa-balance-scale" style="margin-right:8px; color:var(--primary);"></i>
+              Statement of Financial Position &amp; Net Balance
+            </h3>
+            <p style="font-size:12px; color:var(--text-muted); margin:0;">
+              Export consolidated statement of bank balances, receivables, payables/liabilities, and total net worth.
+            </p>
+          </div>
+          <div class="d-flex gap-2">
+            <button class="btn btn-outline text-success" id="btn-stmt-net-excel" title="Download Balance Sheet & Net Worth in Excel">
+              <i class="fas fa-file-excel"></i> Net Balance (Excel)
+            </button>
+            <button class="btn btn-outline text-danger" id="btn-stmt-net-pdf" title="Download Balance Sheet & Net Worth in PDF">
+              <i class="fas fa-file-pdf"></i> Net Balance (PDF)
+            </button>
+          </div>
         </div>
 
         <div class="card mb-3" id="statement-filters-card">
@@ -504,8 +539,11 @@
             <button class="btn btn-outline" id="btn-import-csv">
               <i class="fas fa-file-csv"></i> Import Bank CSV
             </button>
-            <button class="btn btn-aloe" id="btn-export-all-excel">
-              <i class="fas fa-file-excel"></i> Export All Accounts (Excel)
+            <button class="btn btn-outline" id="btn-settings-net-pdf" title="Export Net Balance Sheet in PDF">
+              <i class="fas fa-file-pdf text-danger"></i> Net Balance (PDF)
+            </button>
+            <button class="btn btn-aloe" id="btn-export-all-excel" title="Export Net Balance Sheet & Master Ledger in Excel">
+              <i class="fas fa-file-excel"></i> Net Balance &amp; Accounts (Excel)
             </button>
           </div>
           <input type="file" id="import-file-input" accept=".json" style="display:none;">
@@ -1156,19 +1194,19 @@
 <!-- Toast Container -->
 <div class="toast-container" id="toast-container"></div>
 <!-- App Scripts (loaded in dependency order with cache buster) -->
-<script src="js/db.js?v=2.3"></script>
-<script src="js/utils.js?v=2.3"></script>
-<script src="js/ui.js?v=2.3"></script>
-<script src="js/auth.js?v=2.3"></script>
-<script src="js/accounts.js?v=2.3"></script>
-<script src="js/categories.js?v=2.3"></script>
-<script src="js/commands.js?v=2.3"></script>
-<script src="js/automation.js?v=2.3"></script>
-<script src="js/receipts.js?v=2.3"></script>
-<script src="js/charts.js?v=2.3"></script>
-<script src="js/transactions.js?v=2.3"></script>
-<script src="js/statements.js?v=2.3"></script>
-<script src="js/app.js?v=2.3"></script>
+<script src="js/db.js?v=2.4"></script>
+<script src="js/utils.js?v=2.4"></script>
+<script src="js/ui.js?v=2.4"></script>
+<script src="js/auth.js?v=2.4"></script>
+<script src="js/accounts.js?v=2.4"></script>
+<script src="js/categories.js?v=2.4"></script>
+<script src="js/commands.js?v=2.4"></script>
+<script src="js/automation.js?v=2.4"></script>
+<script src="js/receipts.js?v=2.4"></script>
+<script src="js/charts.js?v=2.4"></script>
+<script src="js/transactions.js?v=2.4"></script>
+<script src="js/statements.js?v=2.4"></script>
+<script src="js/app.js?v=2.4"></script>
 
 </body>
 </html>

@@ -267,13 +267,34 @@ var BK = window.BK || {};
       });
     }
 
-    // Export All Accounts to Excel
-    var excelAllBtn = document.getElementById('btn-export-all-excel');
-    if (excelAllBtn) {
-      excelAllBtn.addEventListener('click', function () {
-        BK.exportAllAccountsExcel();
-      });
+    // ─── Net Balance & Balance Sheet Exports (PDF & Excel) ───
+    function triggerNetBalancePDF() {
+      if (BK.FinancialReports && BK.FinancialReports.exportNetBalancePDF) {
+        BK.FinancialReports.exportNetBalancePDF();
+      } else if (BK.exportNetBalancePDF) {
+        BK.exportNetBalancePDF();
+      }
     }
+
+    function triggerNetBalanceExcel() {
+      if (BK.FinancialReports && BK.FinancialReports.exportNetBalanceExcel) {
+        BK.FinancialReports.exportNetBalanceExcel();
+      } else if (BK.exportNetBalanceExcel) {
+        BK.exportNetBalanceExcel();
+      }
+    }
+
+    var pdfBtnIds = ['btn-export-net-balance-pdf', 'btn-dashboard-net-pdf', 'btn-stmt-net-pdf', 'btn-settings-net-pdf'];
+    pdfBtnIds.forEach(function (id) {
+      var btn = document.getElementById(id);
+      if (btn) btn.addEventListener('click', triggerNetBalancePDF);
+    });
+
+    var excelBtnIds = ['btn-export-net-balance-excel', 'btn-dashboard-net-excel', 'btn-stmt-net-excel', 'btn-export-all-excel'];
+    excelBtnIds.forEach(function (id) {
+      var btn = document.getElementById(id);
+      if (btn) btn.addEventListener('click', triggerNetBalanceExcel);
+    });
   };
 
   // ─── Sidebar Toggle ───
